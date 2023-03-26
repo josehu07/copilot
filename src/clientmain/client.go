@@ -46,7 +46,7 @@ var cid *int = flag.Int("id", -1, "Client ID.")
 var cpuProfile *string = flag.String("cpuprofile", "", "Name of file for CPU profile. If empty, no profile is created.")
 var maxRuntime *int = flag.Int("runtime", -1, "Max duration to run experiment in second. If negative, stop after sending up to reqsNb requests")
 
-//var debug *bool = flag.Bool("debug", false, "Enable debug output.")
+// var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var trim *float64 = flag.Float64("trim", 0.25, "Exclude some fraction of data at the beginning and at the end.")
 var prefix *string = flag.String("prefix", "", "Path prefix for filenames.")
 var hook *bool = flag.Bool("hook", true, "Add shutdown hook.")
@@ -237,7 +237,8 @@ func main() {
 				log.Fatalf("Error making the GetLeader RPC\n")
 			}
 			leader = reply.LeaderId
-			log.Printf("The leader is replica %d\n", leader)
+			fmt.Printf("The leader is replica %d (%s)\n", leader, rlReply.ReplicaList[leader])
+
 		} else { // two leaders
 			reply := new(masterproto.GetTwoLeadersReply)
 
@@ -247,7 +248,7 @@ func main() {
 			leader = reply.Leader1Id
 			leader2 = reply.Leader2Id
 			//fmt.Printf("The leader 1 is replica %d. The leader 2 is replica %d\n", leader, leader2)
-			fmt.Printf("The leader 1 is replica %d (%s). The leader 2 is replica %d (%s)\n", leader, rlReply.ReplicaList[leader], leader2, rlReply.ReplicaList[leader2])
+			fmt.Printf("The leader 1 is replica %d (%s); The leader 2 is replica %d (%s)\n", leader, rlReply.ReplicaList[leader], leader2, rlReply.ReplicaList[leader2])
 
 			// Init views. Assume initial view id is 0
 			views = make([]*View, 2)
