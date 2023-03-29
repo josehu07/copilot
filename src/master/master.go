@@ -28,32 +28,21 @@ var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affin
 
 func pinCoresAtBase(base int) {
 	numCores := runtime.NumCPU()
-	fmt.Println("Number of CPU cores:", numCores)
+	log.Println("Number of CPU cores:", numCores)
 
-	// get current affinity
-	// pid := os.Getpid()
-	// cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
-	// out, err := cmd.Output()
-	// if err != nil {
-	// 	fmt.Println("Error getting current CPU affinity:", err)
-	// 	os.Exit(1)
-	// }
-	// fmt.Printf("%s", out)
-
-	// set desired affinity
 	pid := os.Getpid()
 	if base < 0 || base > numCores-2 {
-		fmt.Println("Error: invalid pinCoreBase", base)
+		log.Fatalln("Error: invalid pinCoreBase", base)
 		os.Exit(1)
 	}
 	mask_str := fmt.Sprintf("%d,%d", base, base+1)
 	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
 	out, err := cmd.Output()
 	if err != nil {
-		fmt.Println("Error setting CPU affinity:", err)
+		log.Fatalln("Error setting CPU affinity:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("%s", out)
+	log.Printf("%s", out)
 }
 
 type Master struct {
