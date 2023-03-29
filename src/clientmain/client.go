@@ -216,7 +216,7 @@ func main() {
 		}
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 	/*registerClientIdSuccessful := waitRegisterClientIdReplies(readers, N)
 	fmt.Printf("Client Id Registration succeeds: %d out of %d\n", registerClientIdSuccessful, N)*/
 
@@ -313,7 +313,7 @@ func main() {
 	before_total := time.Now()
 	lastThroughputTime := before_total
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// compose value
 	rand.Seed(time.Now().UnixNano())
