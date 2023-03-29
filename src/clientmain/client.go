@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"os/exec"
 	"os/signal"
 	filepath2 "path/filepath"
 	"runtime"
@@ -46,7 +47,12 @@ var cid *int = flag.Int("id", -1, "Client ID.")
 var cpuProfile *string = flag.String("cpuprofile", "", "Name of file for CPU profile. If empty, no profile is created.")
 var maxRuntime *int = flag.Int("runtime", -1, "Max duration to run experiment in second. If negative, stop after sending up to reqsNb requests")
 
-var valueSize = flag.Uint64("vsize", 8, "Value string length")
+/* Added by Guanzhou. */
+
+var valueSize = flag.Uint64("vSize", 8, "Value string length")
+var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
+
+/* ===== */
 
 // var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var trim *float64 = flag.Float64("trim", 0.25, "Exclude some fraction of data at the beginning and at the end.")
@@ -97,11 +103,41 @@ type View struct {
 
 var throughputs []DataPoint
 
+func pinCoresAtBase(base int) {
+	numCores := runtime.NumCPU()
+	fmt.Println("Number of CPU cores:", numCores)
+
+	// var mask uintptr
+	// if _, _, errno := syscall.RawSyscall(syscall.SYS_SCHED_GETAFFINITY, 0, uintptr(unsafe.Sizeof(mask)), uintptr(unsafe.Pointer(&mask))); errno != 0 {
+	// 	log.Fatalf("Failed to get current CPU affinity: %d\n", errno)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("Current CPU affinity: %b\n", mask)
+	pid := os.Getpid()
+	cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Println("Error getting current CPU affinity:", err)
+		os.Exit(1)
+	}
+	fmt.Println("Current CPU affinity:")
+	fmt.Printf("%s\n", out)
+}
+
 func main() {
 
 	flag.Parse()
 
 	runtime.GOMAXPROCS(*procs)
+
+	// set CPU cores affinity
+	if *pinCoreBase >= 0 {
+		if *procs != 2 {
+			fmt.Println("Error: -pinCoreBase flag only supports the default -procs=2")
+			os.Exit(1)
+		}
+		pinCoresAtBase(*pinCoreBase)
+	}
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
