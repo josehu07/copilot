@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	execpkg "os/exec"
 	"os/signal"
 	"paxos"
 	"runtime"
@@ -66,7 +67,7 @@ func pinCoresAtBase(base int) {
 		os.Exit(1)
 	}
 	mask_str := fmt.Sprintf("%d,%d", base, base+1)
-	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
+	cmd := execpkg.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
 	out, err := cmd.Output()
 	if err != nil {
 		fmt.Println("Error setting CPU affinity:", err)
