@@ -107,6 +107,7 @@ func pinCoresAtBase(base int) {
 	numCores := runtime.NumCPU()
 	fmt.Println("Number of CPU cores:", numCores)
 
+	// get current affinity
 	// var mask uintptr
 	// if _, _, errno := syscall.RawSyscall(syscall.SYS_SCHED_GETAFFINITY, 0, uintptr(unsafe.Sizeof(mask)), uintptr(unsafe.Pointer(&mask))); errno != 0 {
 	// 	log.Fatalf("Failed to get current CPU affinity: %d\n", errno)
@@ -120,8 +121,21 @@ func pinCoresAtBase(base int) {
 		fmt.Println("Error getting current CPU affinity:", err)
 		os.Exit(1)
 	}
-	fmt.Println("Current CPU affinity:")
-	fmt.Printf("%s\n", out)
+	fmt.Printf("%s", out)
+
+	// set desired affinity
+	if base < 0 || base > numCores-2 {
+		fmt.Println("Error: invalid pinCoreBase", base)
+		os.Exit(1)
+	}
+	mask_str := fmt.Sprintf("%d,%d", base, base+1)
+	cmd = exec.Command("taskset", "-p", mask_str, fmt.Sprintf("%d", pid))
+	out, err = cmd.Output()
+	if err != nil {
+		fmt.Println("Error setting CPU affinity:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s", out)
 }
 
 func main() {
