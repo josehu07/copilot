@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-//const REQUEST_TIMEOUT = 1 * time.Second
+// const REQUEST_TIMEOUT = 1 * time.Second
 const REQUEST_TIMEOUT = 100 * time.Millisecond
 const GET_VIEW_TIMEOUT = 100 * time.Millisecond
 const GC_DEBUG_ENABLED = false
@@ -47,7 +47,7 @@ var cid *int = flag.Int("id", -1, "Client ID.")
 var cpuProfile *string = flag.String("cpuprofile", "", "Name of file for CPU profile. If empty, no profile is created.")
 var maxRuntime *int = flag.Int("runtime", -1, "Max duration to run experiment in second. If negative, stop after sending up to reqsNb requests")
 
-//var debug *bool = flag.Bool("debug", false, "Enable debug output.")
+// var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var trim *float64 = flag.Float64("trim", 0.25, "Exclude some fraction of data at the beginning and at the end.")
 var prefix *string = flag.String("prefix", "", "Path prefix for filenames.")
 var hook *bool = flag.Bool("hook", true, "Add shutdown hook.")
@@ -357,6 +357,13 @@ func main() {
 			}
 		}()
 	}
+
+	// compose value
+	rand.Seed(time.Now().UnixNano())
+	vbytes := make([]byte, 8)
+	rand.Read(vbytes)
+	vstr := string(vbytes)
+
 	for !exptDone {
 		select {
 		case <-exptTimer.C:
@@ -381,7 +388,7 @@ func main() {
 			id := int32(i)
 			dlog.Printf("Sending proposal %d\n", id)
 
-			args := genericsmrproto.Propose{id, state.Command{ClientId: clientId, OpId: id, Op: state.PUT, K: 0, V: 0}, time.Now().UnixNano()}
+			args := genericsmrproto.Propose{id, state.Command{ClientId: clientId, OpId: id, Op: state.PUT, K: 0, V: ""}, time.Now().UnixNano()}
 
 			if put[i] {
 				args.Command.Op = state.PUT
@@ -389,7 +396,7 @@ func main() {
 				args.Command.Op = state.GET
 			}
 			args.Command.K = state.Key(karray[i])
-			args.Command.V = state.Value(i)
+			args.Command.V = state.Value(vstr)
 
 			succeeded := false
 			// this is the new request, not the retry
@@ -500,12 +507,11 @@ func main() {
 					views[newView.PilotId].ViewId = newView.ViewId
 					views[newView.PilotId].Active = true
 				}
-				if i == nv - 1 {
+				if i == nv-1 {
 					break
 				}
 				newView = <-viewChangeChan
 			}
-
 
 		default:
 			break

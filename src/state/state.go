@@ -8,6 +8,7 @@ import (
 )
 
 type Operation uint8
+
 //type OperationId int32
 
 const (
@@ -19,18 +20,18 @@ const (
 	WLOCK
 )
 
-type Value int64
+type Value string
 
-const NIL Value = 0
+const NIL Value = ""
 
 type Key int64
 
 type Command struct {
 	ClientId uint32
-	OpId int32
-	Op Operation
-	K  Key
-	V  Value
+	OpId     int32
+	Op       Operation
+	K        Key
+	V        Value
 }
 
 type State struct {

@@ -30,13 +30,17 @@ func (t *Command) Marshal(w io.Writer) {
 	b[0] = byte(t.Op)
 	w.Write(bs)
 
-	bs = b[:8]
 	// K
+	bs = b[:8]
 	binary.LittleEndian.PutUint64(bs, uint64(t.K))
 	w.Write(bs)
+
 	// V
-	binary.LittleEndian.PutUint64(bs, uint64(t.V))
+	// binary.LittleEndian.PutUint64(bs, uint64(t.V))
+	vbytes := []byte(t.V)
+	binary.LittleEndian.PutUint64(bs, uint64(len(vbytes))) // length first
 	w.Write(bs)
+	w.Write(vbytes) // then actual string bytes
 }
 
 func (t *Command) Unmarshal(r io.Reader) error {
@@ -61,17 +65,25 @@ func (t *Command) Unmarshal(r io.Reader) error {
 		return err
 	}
 	t.Op = Operation(b[0])
-	bs = b[:8]
+
 	// K
+	bs = b[:8]
 	if _, err := io.ReadFull(r, bs); err != nil {
 		return err
 	}
 	t.K = Key(binary.LittleEndian.Uint64(bs))
+
 	// V
 	if _, err := io.ReadFull(r, bs); err != nil {
 		return err
 	}
-	t.V = Value(binary.LittleEndian.Uint64(bs))
+	vlen := binary.LittleEndian.Uint64(bs)
+	vbs := make([]byte, vlen)
+	if _, err := io.ReadFull(r, vbs); err != nil {
+		return err
+	}
+	t.V = Value(vbs)
+
 	return nil
 }
 
@@ -85,8 +97,10 @@ func (t *Key) Marshal(w io.Writer) {
 func (t *Value) Marshal(w io.Writer) {
 	var b [8]byte
 	bs := b[:8]
-	binary.LittleEndian.PutUint64(bs, uint64(*t))
+	vbytes := []byte(*t)
+	binary.LittleEndian.PutUint64(bs, uint64(len(vbytes)))
 	w.Write(bs)
+	w.Write(vbytes)
 }
 
 func (t *Key) Unmarshal(r io.Reader) error {
@@ -105,6 +119,11 @@ func (t *Value) Unmarshal(r io.Reader) error {
 	if _, err := io.ReadFull(r, bs); err != nil {
 		return err
 	}
-	*t = Value(binary.LittleEndian.Uint64(bs))
+	vlen := binary.LittleEndian.Uint64(bs)
+	vbs := make([]byte, vlen)
+	if _, err := io.ReadFull(r, vbs); err != nil {
+		return err
+	}
+	*t = Value(vbs)
 	return nil
 }

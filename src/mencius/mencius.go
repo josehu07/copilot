@@ -121,7 +121,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	return r
 }
 
-//append a log entry to stable storage
+// append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	if !r.Durable {
 		return
@@ -139,7 +139,7 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	r.StableStore.Write(b[:])
 }
 
-//write a sequence of commands to stable storage
+// write a sequence of commands to stable storage
 func (r *Replica) recordCommand(cmd *state.Command) {
 	if !r.Durable {
 		return
@@ -151,7 +151,7 @@ func (r *Replica) recordCommand(cmd *state.Command) {
 	cmd.Marshal(io.Writer(r.StableStore))
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return
@@ -466,7 +466,7 @@ func (r *Replica) handlePrepare(prepare *menciusproto.Prepare) {
 			-1,
 			FALSE,
 			0,
-			state.Command{Op:state.NONE, K: 0, V: 0}})
+			state.Command{Op: state.NONE, K: 0, V: ""}})
 
 		r.instanceSpace[prepare.Instance] = &Instance{false,
 			0,
@@ -480,7 +480,7 @@ func (r *Replica) handlePrepare(prepare *menciusproto.Prepare) {
 			ok = FALSE
 		}
 		if inst.command == nil {
-			inst.command = &state.Command{Op: state.NONE, K: 0, V: 0}
+			inst.command = &state.Command{Op: state.NONE, K: 0, V: ""}
 		}
 		skipped := FALSE
 		if inst.skipped {
@@ -885,7 +885,7 @@ func (r *Replica) forceCommit() {
 		if r.instanceSpace[problemInstance] == nil {
 			r.instanceSpace[problemInstance] = &Instance{true,
 				NB_INST_TO_SKIP,
-				&state.Command{Op: state.NONE, K: 0, V: 0},
+				&state.Command{Op: state.NONE, K: 0, V: ""},
 				r.makeUniqueBallot(1),
 				PREPARING,
 				&LeaderBookkeeping{nil, 0, 0, 0, 0}}

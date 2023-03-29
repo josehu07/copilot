@@ -46,6 +46,8 @@ var cid *int = flag.Int("id", -1, "Client ID.")
 var cpuProfile *string = flag.String("cpuprofile", "", "Name of file for CPU profile. If empty, no profile is created.")
 var maxRuntime *int = flag.Int("runtime", -1, "Max duration to run experiment in second. If negative, stop after sending up to reqsNb requests")
 
+var valueSize = flag.Uint64("vsize", 8, "Value string length")
+
 // var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var trim *float64 = flag.Float64("trim", 0.25, "Exclude some fraction of data at the beginning and at the end.")
 var prefix *string = flag.String("prefix", "", "Path prefix for filenames.")
@@ -313,12 +315,18 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 
+	// compose value
+	rand.Seed(time.Now().UnixNano())
+	vbytes := make([]byte, *valueSize)
+	rand.Read(vbytes)
+	vstr := string(vbytes)
+
 	var pilotErr, pilotErr1 error
 	var lastGVSent0, lastGVSent1 time.Time
 	for i := 0; i < *reqsNb; i++ {
 
 		id := int32(i)
-		args := genericsmrproto.Propose{id, state.Command{ClientId: clientId, OpId: id, Op: state.PUT, K: 0, V: 0}, time.Now().UnixNano()}
+		args := genericsmrproto.Propose{id, state.Command{ClientId: clientId, OpId: id, Op: state.PUT, K: 0, V: ""}, time.Now().UnixNano()}
 
 		/* Prepare proposal */
 		dlog.Printf("Sending proposal %d\n", id)
@@ -329,7 +337,7 @@ func main() {
 			args.Command.Op = state.GET
 		}
 		args.Command.K = state.Key(karray[i])
-		args.Command.V = state.Value(i)
+		args.Command.V = state.Value(vstr)
 		//args.Timestamp = time.Now().UnixNano()
 
 		before := time.Now()
