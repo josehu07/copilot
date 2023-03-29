@@ -108,29 +108,24 @@ func pinCoresAtBase(base int) {
 	fmt.Println("Number of CPU cores:", numCores)
 
 	// get current affinity
-	// var mask uintptr
-	// if _, _, errno := syscall.RawSyscall(syscall.SYS_SCHED_GETAFFINITY, 0, uintptr(unsafe.Sizeof(mask)), uintptr(unsafe.Pointer(&mask))); errno != 0 {
-	// 	log.Fatalf("Failed to get current CPU affinity: %d\n", errno)
+	// pid := os.Getpid()
+	// cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
+	// out, err := cmd.Output()
+	// if err != nil {
+	// 	fmt.Println("Error getting current CPU affinity:", err)
 	// 	os.Exit(1)
 	// }
-	// fmt.Printf("Current CPU affinity: %b\n", mask)
-	pid := os.Getpid()
-	cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
-	out, err := cmd.Output()
-	if err != nil {
-		fmt.Println("Error getting current CPU affinity:", err)
-		os.Exit(1)
-	}
-	fmt.Printf("%s", out)
+	// fmt.Printf("%s", out)
 
 	// set desired affinity
+	pid := os.Getpid()
 	if base < 0 || base > numCores-2 {
 		fmt.Println("Error: invalid pinCoreBase", base)
 		os.Exit(1)
 	}
 	mask_str := fmt.Sprintf("%d,%d", base, base+1)
-	cmd = exec.Command("taskset", "-p", mask_str, fmt.Sprintf("%d", pid))
-	out, err = cmd.Output()
+	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
+	out, err := cmd.Output()
 	if err != nil {
 		fmt.Println("Error setting CPU affinity:", err)
 		os.Exit(1)
