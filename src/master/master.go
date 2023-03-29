@@ -9,6 +9,9 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"os"
+	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -16,6 +19,42 @@ import (
 var portnum *int = flag.Int("port", 7087, "Port # to listen on. Defaults to 7087")
 var numNodes *int = flag.Int("N", 3, "Number of replicas. Defaults to 3.")
 var twoLeaders *bool = flag.Bool("twoLeaders", false, "Two leaders for slowdown tolerance. Defaults to false.")
+
+/* Added by Guanzhou. */
+
+var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
+
+/* ===== */
+
+func pinCoresAtBase(base int) {
+	numCores := runtime.NumCPU()
+	fmt.Println("Number of CPU cores:", numCores)
+
+	// get current affinity
+	// pid := os.Getpid()
+	// cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
+	// out, err := cmd.Output()
+	// if err != nil {
+	// 	fmt.Println("Error getting current CPU affinity:", err)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("%s", out)
+
+	// set desired affinity
+	pid := os.Getpid()
+	if base < 0 || base > numCores-2 {
+		fmt.Println("Error: invalid pinCoreBase", base)
+		os.Exit(1)
+	}
+	mask_str := fmt.Sprintf("%d,%d", base, base+1)
+	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Println("Error setting CPU affinity:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s", out)
+}
 
 type Master struct {
 	N        int
@@ -30,6 +69,13 @@ type Master struct {
 
 func main() {
 	flag.Parse()
+
+	runtime.GOMAXPROCS(2)
+
+	// set CPU cores affinity
+	if *pinCoreBase >= 0 {
+		pinCoresAtBase(*pinCoreBase)
+	}
 
 	log.Printf("Master starting on port %d\n", *portnum)
 	log.Printf("...waiting for %d replicas\n", *numNodes)
@@ -169,15 +215,15 @@ func (master *Master) GetLeader(args *masterproto.GetLeaderArgs, reply *masterpr
 func (master *Master) GetTwoLeaders(args *masterproto.GetTwoLeadersArgs, reply *masterproto.GetTwoLeadersReply) error {
 
 	time.Sleep(4 * 1000 * 1000)
-	reply.Leader1Id = -1;
-	reply.Leader2Id = -1;
+	reply.Leader1Id = -1
+	reply.Leader2Id = -1
 	for i, l := range master.leader {
 		if l {
 			if reply.Leader1Id == -1 {
 				reply.Leader1Id = i
 			} else {
-				reply.Leader2Id = i;
-				break;
+				reply.Leader2Id = i
+				break
 			}
 		}
 	}

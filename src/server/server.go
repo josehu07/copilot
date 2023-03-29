@@ -39,10 +39,55 @@ var beacon *bool = flag.Bool("beacon", false, "Send beacons to other replicas to
 var durable *bool = flag.Bool("durable", false, "Log to a stable store (i.e., a file in the current dir).")
 var rreply *bool = flag.Bool("rreply", false, "Non-leader replicas reply to client.")
 
+/* Added by Guanzhou. */
+
+var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
+
+/* ===== */
+
+func pinCoresAtBase(base int) {
+	numCores := runtime.NumCPU()
+	fmt.Println("Number of CPU cores:", numCores)
+
+	// get current affinity
+	// pid := os.Getpid()
+	// cmd := exec.Command("taskset", "-p", fmt.Sprintf("%d", pid))
+	// out, err := cmd.Output()
+	// if err != nil {
+	// 	fmt.Println("Error getting current CPU affinity:", err)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("%s", out)
+
+	// set desired affinity
+	pid := os.Getpid()
+	if base < 0 || base > numCores-2 {
+		fmt.Println("Error: invalid pinCoreBase", base)
+		os.Exit(1)
+	}
+	mask_str := fmt.Sprintf("%d,%d", base, base+1)
+	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Println("Error setting CPU affinity:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s", out)
+}
+
 func main() {
 	flag.Parse()
 
 	runtime.GOMAXPROCS(*procs)
+
+	// set CPU cores affinity
+	if *pinCoreBase >= 0 {
+		if *procs != 2 {
+			fmt.Println("Error: -pinCoreBase flag only supports GOMAXPROCS <= 2")
+			os.Exit(1)
+		}
+		pinCoresAtBase(*pinCoreBase)
+	}
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)

@@ -141,8 +141,8 @@ func main() {
 
 	// set CPU cores affinity
 	if *pinCoreBase >= 0 {
-		if *procs != 2 {
-			fmt.Println("Error: -pinCoreBase flag only supports the default -procs=2")
+		if *procs > 2 {
+			fmt.Println("Error: -pinCoreBase flag only supports GOMAXPROCS <= 2")
 			os.Exit(1)
 		}
 		pinCoresAtBase(*pinCoreBase)
