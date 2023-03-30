@@ -253,7 +253,7 @@ type LeaderBookkeeping struct {
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, rreply bool) *Replica {
 	r := &Replica{
-		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
+		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -304,7 +304,6 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	}*/
 
 	r.Beacon = beacon
-	r.Durable = durable
 
 	for i := 0; i < NUM_LEADERS; i++ {
 		r.InstanceSpace[i] = make([]*Instance, 2*1024*1024)
@@ -355,7 +354,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	return r
 }
 
-//append a log entry to stable storage
+// append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	if !r.Durable {
 		return
@@ -372,7 +371,7 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	r.StableStore.Write(b[:])
 }
 
-//write a sequence of commands to stable storage
+// write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
 	if !r.Durable {
 		return
@@ -386,7 +385,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 	}
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return
@@ -2869,11 +2868,13 @@ func (r *Replica) handleTryPreAcceptReply(tpar *copilotproto.TryPreAcceptReply) 
 	}
 }
 
-/**********************************************************************
+/*
+*********************************************************************
 
-                      VIEW CHANGE PROTOCOL
+	VIEW CHANGE PROTOCOL
 
-***********************************************************************/
+**********************************************************************
+*/
 func (r *Replica) startViewChange(pilotId, oldViewId int32) {
 
 	// return if a replica already updated to a view newer than the one we want to change

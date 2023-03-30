@@ -85,7 +85,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	for i := 0; i < len(skippedTo); i++ {
 		skippedTo[i] = -1
 	}
-	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
+	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE*4),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -106,8 +106,6 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		0,
 		0,
 		skippedTo}
-
-	r.Durable = durable
 
 	r.skipRPC = r.RegisterRPC(new(menciusproto.Skip), r.skipChan)
 	r.prepareRPC = r.RegisterRPC(new(menciusproto.Prepare), r.prepareChan)

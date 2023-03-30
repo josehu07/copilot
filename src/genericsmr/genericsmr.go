@@ -82,7 +82,7 @@ type Replica struct {
 	GetViewChan chan *GetView
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
 	r := &Replica{
 		len(peerAddrList),
 		int32(id),
@@ -99,7 +99,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		thrifty,
 		exec,
 		dreply,
-		false,
+		durable,
 		false,
 		nil,
 		make([]int32, len(peerAddrList)),
@@ -113,8 +113,10 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 
 	var err error
 
-	if r.StableStore, err = os.Create(fmt.Sprintf("stable-store-replica%d", r.Id)); err != nil {
-		log.Fatal(err)
+	if durable {
+		if r.StableStore, err = os.Create(fmt.Sprintf("stable-store-replica%d", r.Id)); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	for i := 0; i < r.N; i++ {

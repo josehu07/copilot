@@ -43,6 +43,7 @@ var rreply *bool = flag.Bool("rreply", false, "Non-leader replicas reply to clie
 /* Added by Guanzhou. */
 
 var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
+var durDelayPerSector *uint = flag.Uint("durDelay", 0, "If > 0, add given durability delay (microsecs) per sector (512B).")
 
 /* ===== */
 
@@ -117,7 +118,7 @@ func main() {
 		rpc.Register(rep)
 	} else {
 		log.Println("Starting classic Paxos replica...")
-		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable, *durDelayPerSector)
 		rpc.Register(rep)
 	}
 
