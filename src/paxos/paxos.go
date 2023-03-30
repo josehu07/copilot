@@ -90,8 +90,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		0,
 		true,
 		-1,
-		durDelayPerSector,
-	}
+		durDelayPerSector}
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)

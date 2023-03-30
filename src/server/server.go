@@ -53,14 +53,14 @@ func pinCoresAtBase(base int) {
 
 	pid := os.Getpid()
 	if base < 0 || base > numCores-2 {
-		log.Fatalln("Error: invalid pinCoreBase", base)
+		log.Fatal("Error: invalid pinCoreBase", base)
 		os.Exit(1)
 	}
 	mask_str := fmt.Sprintf("%d,%d", base, base+1)
 	cmd := execpkg.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
 	out, err := cmd.Output()
 	if err != nil {
-		log.Fatalln("Error setting CPU affinity:", err)
+		log.Fatal("Error setting CPU affinity:", err)
 		os.Exit(1)
 	}
 	log.Printf("%s", out)
@@ -74,10 +74,15 @@ func main() {
 	// set CPU cores affinity
 	if *pinCoreBase >= 0 {
 		if *procs != 2 {
-			log.Fatalln("Error: -pinCoreBase flag only supports GOMAXPROCS <= 2")
+			log.Fatal("Error: -pinCoreBase flag only supports GOMAXPROCS <= 2")
 			os.Exit(1)
 		}
 		pinCoresAtBase(*pinCoreBase)
+	}
+
+	// check delay parameters
+	if *durDelayPerSector < 0 {
+		log.Fatal("Error: invalid -durDelay value:", *durDelayPerSector)
 	}
 
 	if *cpuprofile != "" {
@@ -98,7 +103,7 @@ func main() {
 
 	if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
-		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable)
+		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *durDelayPerSector)
 		rpc.Register(rep)
 	} else if *doMencius {
 		log.Println("Starting Mencius replica...")
@@ -110,7 +115,7 @@ func main() {
 		rpc.Register(rep)
 	} else if *doCopilot {
 		log.Println("Starting Copilot replica...")
-		rep := copilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply)
+		rep := copilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply, *durDelayPerSector)
 		rpc.Register(rep)
 	} else if *doLatentCopilot {
 		log.Println("Starting Latent Copilot replica...")

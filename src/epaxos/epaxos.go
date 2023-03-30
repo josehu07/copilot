@@ -78,6 +78,8 @@ type Replica struct {
 	latestCPInstance      int32
 	clientMutex           *sync.Mutex // for synchronizing when sending replies to clients from multiple go-routines
 	instancesToRecover    chan *instanceId
+	// delay injection:
+	durDelayPerSector uint
 }
 
 type Instance struct {
@@ -122,7 +124,7 @@ type LeaderBookkeeping struct {
 	tpaOKs            int
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, durDelayPerSector uint) *Replica {
 	r := &Replica{
 		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -148,7 +150,8 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		0,
 		-1,
 		new(sync.Mutex),
-		make(chan *instanceId, genericsmr.CHAN_BUFFER_SIZE)}
+		make(chan *instanceId, genericsmr.CHAN_BUFFER_SIZE),
+		durDelayPerSector}
 
 	r.Beacon = beacon
 
@@ -188,6 +191,11 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 
 // append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
+	// inject durability delay
+	if r.durDelayPerSector > 0 {
+		time.Sleep(time.Duration(r.durDelayPerSector) * time.Microsecond)
+	}
+
 	if !r.Durable {
 		return
 	}
@@ -206,6 +214,21 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 
 // write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
+	// inject durability delay
+	if r.durDelayPerSector > 0 {
+		payloadLen := uint(0)
+		for i := 0; i < len(cmds); i++ {
+			payloadLen += uint(17 + len(cmds[i].V))
+		}
+
+		numSectors := payloadLen / 512
+		if payloadLen%512 != 0 {
+			numSectors++
+		}
+
+		time.Sleep(time.Duration(numSectors*r.durDelayPerSector) * time.Microsecond)
+	}
+
 	if !r.Durable {
 		return
 	}

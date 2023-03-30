@@ -32,14 +32,14 @@ func pinCoresAtBase(base int) {
 
 	pid := os.Getpid()
 	if base < 0 || base > numCores-2 {
-		log.Fatalln("Error: invalid pinCoreBase", base)
+		log.Fatal("Error: invalid pinCoreBase", base)
 		os.Exit(1)
 	}
 	mask_str := fmt.Sprintf("%d,%d", base, base+1)
 	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
 	out, err := cmd.Output()
 	if err != nil {
-		log.Fatalln("Error setting CPU affinity:", err)
+		log.Fatal("Error setting CPU affinity:", err)
 		os.Exit(1)
 	}
 	log.Printf("%s", out)
