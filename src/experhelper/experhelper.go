@@ -154,6 +154,6 @@ func setReplicasDurDelay(N int, readers []*bufio.Reader, writers []*bufio.Writer
 		if err = ptReply.Unmarshal(readers[targetId]); err != nil {
 			log.Fatalf("Error parsing ParamTweakReply from replica %d\n", targetId)
 		}
-		fmt.Printf("  Replica %d  OK? %d\n", targetId, ptReply.OK)
+		fmt.Printf("  Replica %2d  DurDelayPerSector %5d  OK? %1d\n", targetId, targetDelay, ptReply.OK)
 	}
 }
