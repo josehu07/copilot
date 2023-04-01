@@ -979,7 +979,7 @@ func (t *Beacon) Unmarshal(wire io.Reader) error {
  * ParamTweak:
  */
 func (t *ParamTweak) BinarySize() (nbytes int, sizeKnown bool) {
-	return 8, true
+	return 9, true
 }
 
 type ParamTweakCache struct {
@@ -1014,29 +1014,31 @@ func (p *ParamTweakCache) Put(t *ParamTweak) {
 }
 
 func (t *ParamTweak) Marshal(wire io.Writer) {
-	var b [8]byte
+	var b [9]byte
 	var bs []byte
-	bs = b[:8]
+	bs = b[:9]
+	bs[0] = byte(t.UpdateDurDelay)
 	tmp64 := t.DurDelay
-	bs[0] = byte(tmp64)
-	bs[1] = byte(tmp64 >> 8)
-	bs[2] = byte(tmp64 >> 16)
-	bs[3] = byte(tmp64 >> 24)
-	bs[4] = byte(tmp64 >> 32)
-	bs[5] = byte(tmp64 >> 40)
-	bs[6] = byte(tmp64 >> 48)
-	bs[7] = byte(tmp64 >> 56)
+	bs[1] = byte(tmp64)
+	bs[2] = byte(tmp64 >> 8)
+	bs[3] = byte(tmp64 >> 16)
+	bs[4] = byte(tmp64 >> 24)
+	bs[5] = byte(tmp64 >> 32)
+	bs[6] = byte(tmp64 >> 40)
+	bs[7] = byte(tmp64 >> 48)
+	bs[8] = byte(tmp64 >> 56)
 	wire.Write(bs)
 }
 
 func (t *ParamTweak) Unmarshal(wire io.Reader) error {
-	var b [8]byte
+	var b [9]byte
 	var bs []byte
-	bs = b[:8]
-	if _, err := io.ReadAtLeast(wire, bs, 8); err != nil {
+	bs = b[:9]
+	if _, err := io.ReadAtLeast(wire, bs, 9); err != nil {
 		return err
 	}
-	t.DurDelay = uint64((uint64(bs[0]) | (uint64(bs[1]) << 8) | (uint64(bs[2]) << 16) | (uint64(bs[3]) << 24) | (uint64(bs[4]) << 32) | (uint64(bs[5]) << 40) | (uint64(bs[6]) << 48) | (uint64(bs[7]) << 56)))
+	t.UpdateDurDelay = uint8(uint8(bs[0]))
+	t.DurDelay = uint64((uint64(bs[1]) | (uint64(bs[2]) << 8) | (uint64(bs[3]) << 16) | (uint64(bs[4]) << 24) | (uint64(bs[5]) << 32) | (uint64(bs[6]) << 40) | (uint64(bs[7]) << 48) | (uint64(bs[8]) << 56)))
 	return nil
 }
 

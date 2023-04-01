@@ -144,10 +144,19 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
  */
 
 func (r *Replica) HandleParamTweakFromClient(ct *ParamTweak) {
-	atomic.StoreUint64(&r.DurDelayPerSector, ct.DurDelay)
+	updated := false
+	if ct.UpdateDurDelay == 1 {
+		atomic.StoreUint64(&r.DurDelayPerSector, ct.DurDelay)
+		log.Printf("Replica %d updated param 'DurDelayPerSector' to %d\n", r.Id, ct.DurDelay)
+		updated = true
+	}
 
 	var ctReply *genericsmrproto.ParamTweakReply
-	ctReply = &genericsmrproto.ParamTweakReply{OK: 1}
+	okVal := uint8(0)
+	if updated {
+		okVal = 1
+	}
+	ctReply = &genericsmrproto.ParamTweakReply{OK: okVal}
 	r.ReplyParamTweak(ctReply, ct.Reply)
 }
 
@@ -503,7 +512,7 @@ func (r *Replica) clientListener(conn net.Conn) {
 			r.GetViewChan <- &GetView{gv, writer}
 			break
 
-		case genericsmrproto.CONFIG_TWEAK:
+		case genericsmrproto.PARAM_TWEAK:
 			ct := new(genericsmrproto.ParamTweak)
 			if err = ct.Unmarshal(reader); err != nil {
 				break
@@ -583,7 +592,7 @@ func (r *Replica) ReplyGetView(reply *genericsmrproto.GetViewReply, w *bufio.Wri
 }
 
 func (r *Replica) ReplyParamTweak(reply *genericsmrproto.ParamTweakReply, w *bufio.Writer) {
-	w.WriteByte(genericsmrproto.CONFIG_TWEAK_REPLY)
+	w.WriteByte(genericsmrproto.PARAM_TWEAK_REPLY)
 	reply.Marshal(w)
 	w.Flush()
 }

@@ -17,8 +17,8 @@ const (
 	REGISTER_CLIENT_ID_REPLY
 	GET_VIEW
 	GET_VIEW_REPLY
-	CONFIG_TWEAK
-	CONFIG_TWEAK_REPLY
+	PARAM_TWEAK
+	PARAM_TWEAK_REPLY
 )
 
 type Propose struct {
@@ -104,7 +104,8 @@ type GetViewReply struct {
 }
 
 type ParamTweak struct {
-	DurDelay uint64
+	UpdateDurDelay uint8
+	DurDelay       uint64
 }
 
 type ParamTweakReply struct {
