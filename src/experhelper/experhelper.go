@@ -22,7 +22,11 @@ var queryStatus *bool = flag.Bool("q", false, "Print cluster status info.")
 func main() {
 	flag.Parse()
 	if *epaxos && *copilot {
-		log.Fatalf("Cannot set -epaxos and -copilot at the same time\n")
+		log.Fatalf("Error: cannot set -epaxos and -copilot at the same time\n")
+		os.Exit(1)
+	}
+	if !(*queryStatus) {
+		log.Fatalf("Error: no action given to experhelper\n")
 		os.Exit(1)
 	}
 
@@ -76,13 +80,13 @@ func main() {
 
 	if *queryStatus {
 		fmt.Println("Cluster status:")
-		fmt.Printf("  %2s  %24s  %s\n", "Id", "Addr", "Leader")
+		fmt.Printf("  %2s  %22s  %s\n", "Id", "Addr", "Leader")
 		for i := 0; i < N; i++ {
 			leaderStr := "false"
 			if isLeader[i] {
 				leaderStr = "true"
 			}
-			fmt.Printf("  %2d  %24s  %s\n", i, replicasReply.ReplicaList[i], leaderStr)
+			fmt.Printf("  %2d  %22s  %s\n", i, replicasReply.ReplicaList[i], leaderStr)
 		}
 	}
 }
