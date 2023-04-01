@@ -13,6 +13,7 @@ import (
 	"os"
 	"rdtsc"
 	"state"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,6 +41,11 @@ type Client struct {
 
 type GetView struct {
 	*genericsmrproto.GetView
+	Reply *bufio.Writer
+}
+
+type ParamTweak struct {
+	*genericsmrproto.ParamTweak
 	Reply *bufio.Writer
 }
 
@@ -80,9 +86,13 @@ type Replica struct {
 	RegisterClientIdChan chan *Client // channel for registering client id
 
 	GetViewChan chan *GetView
+
+	// Delay injection:
+	DurDelayPerSector uint64
+	ParamTweakChan    chan *ParamTweak
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint) *Replica {
 	r := &Replica{
 		len(peerAddrList),
 		int32(id),
@@ -109,6 +119,8 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(chan bool, 1200),
 		make(chan *Client, CHAN_BUFFER_SIZE),
 		make(chan *GetView, CHAN_BUFFER_SIZE),
+		uint64(durDelayPerSector),
+		make(chan *ParamTweak, CHAN_BUFFER_SIZE),
 	}
 
 	var err error
@@ -125,6 +137,18 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	}
 
 	return r
+}
+
+/**
+ * ParamTweak:
+ */
+
+func (r *Replica) HandleParamTweakFromClient(ct *ParamTweak) {
+	atomic.StoreUint64(&r.DurDelayPerSector, ct.DurDelay)
+
+	var ctReply *genericsmrproto.ParamTweakReply
+	ctReply = &genericsmrproto.ParamTweakReply{OK: 1}
+	r.ReplyParamTweak(ctReply, ct.Reply)
 }
 
 /* Client API */
@@ -478,6 +502,14 @@ func (r *Replica) clientListener(conn net.Conn) {
 			}
 			r.GetViewChan <- &GetView{gv, writer}
 			break
+
+		case genericsmrproto.CONFIG_TWEAK:
+			ct := new(genericsmrproto.ParamTweak)
+			if err = ct.Unmarshal(reader); err != nil {
+				break
+			}
+			r.ParamTweakChan <- &ParamTweak{ct, writer}
+			break
 		}
 
 	}
@@ -546,6 +578,12 @@ func (r *Replica) ReplyRegisterClientId(reply *genericsmrproto.RegisterClientIdR
 
 func (r *Replica) ReplyGetView(reply *genericsmrproto.GetViewReply, w *bufio.Writer) {
 	w.WriteByte(genericsmrproto.GET_VIEW_REPLY)
+	reply.Marshal(w)
+	w.Flush()
+}
+
+func (r *Replica) ReplyParamTweak(reply *genericsmrproto.ParamTweakReply, w *bufio.Writer) {
+	w.WriteByte(genericsmrproto.CONFIG_TWEAK_REPLY)
 	reply.Marshal(w)
 	w.Flush()
 }

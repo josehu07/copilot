@@ -11,6 +11,7 @@ import (
 	"log"
 	"paxosproto"
 	"state"
+	"sync/atomic"
 	"time"
 )
 
@@ -45,8 +46,6 @@ type Replica struct {
 	counter             int
 	flush               bool
 	committedUpTo       int32
-	// delay injection:
-	durDelayPerSector uint
 }
 
 type InstanceStatus int
@@ -74,7 +73,7 @@ type LeaderBookkeeping struct {
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint) *Replica {
-	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable),
+	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable, durDelayPerSector),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -89,8 +88,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		false,
 		0,
 		true,
-		-1,
-		durDelayPerSector}
+		-1}
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
@@ -107,8 +105,9 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 // append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	// inject durability delay
-	if r.durDelayPerSector > 0 {
-		time.Sleep(time.Duration(r.durDelayPerSector) * time.Microsecond)
+	durDelayPerSector := atomic.LoadUint64(&r.DurDelayPerSector)
+	if durDelayPerSector > 0 {
+		time.Sleep(time.Duration(durDelayPerSector) * time.Microsecond)
 	}
 
 	if !r.Durable {
@@ -124,10 +123,11 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 // write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
 	// inject durability delay
-	if r.durDelayPerSector > 0 {
-		payloadLen := uint(0)
+	durDelayPerSector := atomic.LoadUint64(&r.DurDelayPerSector)
+	if durDelayPerSector > 0 {
+		payloadLen := uint64(0)
 		for i := 0; i < len(cmds); i++ {
-			payloadLen += uint(17 + len(cmds[i].V))
+			payloadLen += uint64(17 + len(cmds[i].V))
 		}
 
 		numSectors := payloadLen / 512
@@ -135,7 +135,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 			numSectors++
 		}
 
-		time.Sleep(time.Duration(numSectors*r.durDelayPerSector) * time.Microsecond)
+		time.Sleep(time.Duration(numSectors*durDelayPerSector) * time.Microsecond)
 	}
 
 	if !r.Durable {
@@ -336,6 +336,12 @@ func (r *Replica) run() {
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
 			r.handleAcceptReply(acceptReply)
 			break
+
+		/**
+		 * ParamTweak:
+		 */
+		case ct := <-r.ParamTweakChan:
+			r.HandleParamTweakFromClient(ct)
 		}
 	}
 }

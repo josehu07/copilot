@@ -107,7 +107,7 @@ func main() {
 		rpc.Register(rep)
 	} else if *doMencius {
 		log.Println("Starting Mencius replica...")
-		rep := mencius.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rep := mencius.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable, *durDelayPerSector)
 		rpc.Register(rep)
 	} else if *doGpaxos {
 		log.Println("Starting Generalized Paxos replica...")
@@ -119,7 +119,7 @@ func main() {
 		rpc.Register(rep)
 	} else if *doLatentCopilot {
 		log.Println("Starting Latent Copilot replica...")
-		rep := latentcopilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply)
+		rep := latentcopilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply, *durDelayPerSector)
 		rpc.Register(rep)
 	} else {
 		log.Println("Starting classic Paxos replica...")

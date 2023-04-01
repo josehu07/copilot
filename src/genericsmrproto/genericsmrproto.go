@@ -17,6 +17,8 @@ const (
 	REGISTER_CLIENT_ID_REPLY
 	GET_VIEW
 	GET_VIEW_REPLY
+	CONFIG_TWEAK
+	CONFIG_TWEAK_REPLY
 )
 
 type Propose struct {
@@ -91,7 +93,7 @@ type RegisterClientIdReply struct {
 }
 
 type GetView struct {
-	PilotId   int32
+	PilotId int32
 }
 
 type GetViewReply struct {
@@ -99,4 +101,12 @@ type GetViewReply struct {
 	ViewId    int32
 	PilotId   int32 // index of this pilot
 	ReplicaId int32 // unique id of this pilot replica
+}
+
+type ParamTweak struct {
+	DurDelay uint64
+}
+
+type ParamTweakReply struct {
+	OK uint8
 }

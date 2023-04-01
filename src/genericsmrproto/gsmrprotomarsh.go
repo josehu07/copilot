@@ -10,8 +10,8 @@ func (t *ReadReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ReadReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*ReadReply
+	mu    sync.Mutex
+	cache []*ReadReply
 }
 
 func NewReadReplyCache() *ReadReplyCache {
@@ -68,8 +68,8 @@ func (t *BeTheLeaderArgs) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type BeTheLeaderArgsCache struct {
-	mu	sync.Mutex
-	cache	[]*BeTheLeaderArgs
+	mu    sync.Mutex
+	cache []*BeTheLeaderArgs
 }
 
 func NewBeTheLeaderArgsCache() *BeTheLeaderArgsCache {
@@ -108,8 +108,8 @@ func (t *RegisterClientIdArgs) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type RegisterClientIdArgsCache struct {
-	mu	sync.Mutex
-	cache	[]*RegisterClientIdArgs
+	mu    sync.Mutex
+	cache []*RegisterClientIdArgs
 }
 
 func NewRegisterClientIdArgsCache() *RegisterClientIdArgsCache {
@@ -164,8 +164,8 @@ func (t *ProposeReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ProposeReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*ProposeReply
+	mu    sync.Mutex
+	cache []*ProposeReply
 }
 
 func NewProposeReplyCache() *ProposeReplyCache {
@@ -222,8 +222,8 @@ func (t *ProposeAndRead) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ProposeAndReadCache struct {
-	mu	sync.Mutex
-	cache	[]*ProposeAndRead
+	mu    sync.Mutex
+	cache []*ProposeAndRead
 }
 
 func NewProposeAndReadCache() *ProposeAndReadCache {
@@ -282,8 +282,8 @@ func (t *BeaconReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type BeaconReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*BeaconReply
+	mu    sync.Mutex
+	cache []*BeaconReply
 }
 
 func NewBeaconReplyCache() *BeaconReplyCache {
@@ -342,8 +342,8 @@ func (t *PingArgs) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type PingArgsCache struct {
-	mu	sync.Mutex
-	cache	[]*PingArgs
+	mu    sync.Mutex
+	cache []*PingArgs
 }
 
 func NewPingArgsCache() *PingArgsCache {
@@ -394,8 +394,8 @@ func (t *RegisterClientIdReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type RegisterClientIdReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*RegisterClientIdReply
+	mu    sync.Mutex
+	cache []*RegisterClientIdReply
 }
 
 func NewRegisterClientIdReplyCache() *RegisterClientIdReplyCache {
@@ -446,8 +446,8 @@ func (t *GetViewReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type GetViewReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*GetViewReply
+	mu    sync.Mutex
+	cache []*GetViewReply
 }
 
 func NewGetViewReplyCache() *GetViewReplyCache {
@@ -516,8 +516,8 @@ func (t *ProposeReplyTS) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ProposeReplyTSCache struct {
-	mu	sync.Mutex
-	cache	[]*ProposeReplyTS
+	mu    sync.Mutex
+	cache []*ProposeReplyTS
 }
 
 func NewProposeReplyTSCache() *ProposeReplyTSCache {
@@ -592,8 +592,8 @@ func (t *Read) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ReadCache struct {
-	mu	sync.Mutex
-	cache	[]*Read
+	mu    sync.Mutex
+	cache []*Read
 }
 
 func NewReadCache() *ReadCache {
@@ -650,8 +650,8 @@ func (t *ProposeAndReadReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ProposeAndReadReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*ProposeAndReadReply
+	mu    sync.Mutex
+	cache []*ProposeAndReadReply
 }
 
 func NewProposeAndReadReplyCache() *ProposeAndReadReplyCache {
@@ -710,8 +710,8 @@ func (t *PingReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type PingReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*PingReply
+	mu    sync.Mutex
+	cache []*PingReply
 }
 
 func NewPingReplyCache() *PingReplyCache {
@@ -750,8 +750,8 @@ func (t *BeTheLeaderReply) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type BeTheLeaderReplyCache struct {
-	mu	sync.Mutex
-	cache	[]*BeTheLeaderReply
+	mu    sync.Mutex
+	cache []*BeTheLeaderReply
 }
 
 func NewBeTheLeaderReplyCache() *BeTheLeaderReplyCache {
@@ -790,8 +790,8 @@ func (t *Propose) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ProposeCache struct {
-	mu	sync.Mutex
-	cache	[]*Propose
+	mu    sync.Mutex
+	cache []*Propose
 }
 
 func NewProposeCache() *ProposeCache {
@@ -864,8 +864,8 @@ func (t *GetView) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type GetViewCache struct {
-	mu	sync.Mutex
-	cache	[]*GetView
+	mu    sync.Mutex
+	cache []*GetView
 }
 
 func NewGetViewCache() *GetViewCache {
@@ -920,8 +920,8 @@ func (t *Beacon) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type BeaconCache struct {
-	mu	sync.Mutex
-	cache	[]*Beacon
+	mu    sync.Mutex
+	cache []*Beacon
 }
 
 func NewBeaconCache() *BeaconCache {
@@ -972,5 +972,124 @@ func (t *Beacon) Unmarshal(wire io.Reader) error {
 		return err
 	}
 	t.Timestamp = uint64((uint64(bs[0]) | (uint64(bs[1]) << 8) | (uint64(bs[2]) << 16) | (uint64(bs[3]) << 24) | (uint64(bs[4]) << 32) | (uint64(bs[5]) << 40) | (uint64(bs[6]) << 48) | (uint64(bs[7]) << 56)))
+	return nil
+}
+
+/**
+ * ParamTweak:
+ */
+func (t *ParamTweak) BinarySize() (nbytes int, sizeKnown bool) {
+	return 8, true
+}
+
+type ParamTweakCache struct {
+	mu    sync.Mutex
+	cache []*ParamTweak
+}
+
+func NewParamTweakCache() *ParamTweakCache {
+	c := &ParamTweakCache{}
+	c.cache = make([]*ParamTweak, 0)
+	return c
+}
+
+func (p *ParamTweakCache) Get() *ParamTweak {
+	var t *ParamTweak
+	p.mu.Lock()
+	if len(p.cache) > 0 {
+		t = p.cache[len(p.cache)-1]
+		p.cache = p.cache[0:(len(p.cache) - 1)]
+	}
+	p.mu.Unlock()
+	if t == nil {
+		t = &ParamTweak{}
+	}
+	return t
+}
+
+func (p *ParamTweakCache) Put(t *ParamTweak) {
+	p.mu.Lock()
+	p.cache = append(p.cache, t)
+	p.mu.Unlock()
+}
+
+func (t *ParamTweak) Marshal(wire io.Writer) {
+	var b [8]byte
+	var bs []byte
+	bs = b[:8]
+	tmp64 := t.DurDelay
+	bs[0] = byte(tmp64)
+	bs[1] = byte(tmp64 >> 8)
+	bs[2] = byte(tmp64 >> 16)
+	bs[3] = byte(tmp64 >> 24)
+	bs[4] = byte(tmp64 >> 32)
+	bs[5] = byte(tmp64 >> 40)
+	bs[6] = byte(tmp64 >> 48)
+	bs[7] = byte(tmp64 >> 56)
+	wire.Write(bs)
+}
+
+func (t *ParamTweak) Unmarshal(wire io.Reader) error {
+	var b [8]byte
+	var bs []byte
+	bs = b[:8]
+	if _, err := io.ReadAtLeast(wire, bs, 8); err != nil {
+		return err
+	}
+	t.DurDelay = uint64((uint64(bs[0]) | (uint64(bs[1]) << 8) | (uint64(bs[2]) << 16) | (uint64(bs[3]) << 24) | (uint64(bs[4]) << 32) | (uint64(bs[5]) << 40) | (uint64(bs[6]) << 48) | (uint64(bs[7]) << 56)))
+	return nil
+}
+
+func (t *ParamTweakReply) BinarySize() (nbytes int, sizeKnown bool) {
+	return 1, true
+}
+
+type ParamTweakReplyCache struct {
+	mu    sync.Mutex
+	cache []*ParamTweakReply
+}
+
+func NewParamTweakReplyCache() *ParamTweakReplyCache {
+	c := &ParamTweakReplyCache{}
+	c.cache = make([]*ParamTweakReply, 0)
+	return c
+}
+
+func (p *ParamTweakReplyCache) Get() *ParamTweakReply {
+	var t *ParamTweakReply
+	p.mu.Lock()
+	if len(p.cache) > 0 {
+		t = p.cache[len(p.cache)-1]
+		p.cache = p.cache[0:(len(p.cache) - 1)]
+	}
+	p.mu.Unlock()
+	if t == nil {
+		t = &ParamTweakReply{}
+	}
+	return t
+}
+
+func (p *ParamTweakReplyCache) Put(t *ParamTweakReply) {
+	p.mu.Lock()
+	p.cache = append(p.cache, t)
+	p.mu.Unlock()
+}
+
+func (t *ParamTweakReply) Marshal(wire io.Writer) {
+	var b [1]byte
+	var bs []byte
+	bs = b[:1]
+	bs[0] = byte(t.OK)
+	wire.Write(bs)
+}
+
+func (t *ParamTweakReply) Unmarshal(wire io.Reader) error {
+	var b [1]byte
+	var bs []byte
+	bs = b[:1]
+	if _, err := io.ReadAtLeast(wire, bs, 1); err != nil {
+		return err
+	}
+	t.OK = uint8(bs[0])
 	return nil
 }

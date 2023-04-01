@@ -16,6 +16,7 @@ import (
 	"sort"
 	"state"
 	"sync"
+	"sync/atomic"
 	"time"
 	"viewchangeproto"
 )
@@ -197,8 +198,6 @@ type Replica struct {
 	views               []*ViewChangeState
 	beaconReceivedTimes []time.Time
 	beaconMisses        []int32
-	// delay injection:
-	durDelayPerSector uint
 }
 
 type Instance struct {
@@ -255,7 +254,7 @@ type LeaderBookkeeping struct {
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, rreply bool, durDelayPerSector uint) *Replica {
 	r := &Replica{
-		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable),
+		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable, durDelayPerSector),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -297,8 +296,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make([]int32, MAX_CLIENTS),
 		make([]*ViewChangeState, NUM_LEADERS), //TODO: init later in main
 		make([]time.Time, len(peerAddrList)),
-		make([]int32, len(peerAddrList)),
-		durDelayPerSector}
+		make([]int32, len(peerAddrList))}
 
 	// Uncomment this if we use latestOps
 	/*for i := 0; i < len(r.latestOps); i++ {
@@ -359,8 +357,9 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 // append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	// inject durability delay
-	if r.durDelayPerSector > 0 {
-		time.Sleep(time.Duration(r.durDelayPerSector) * time.Microsecond)
+	durDelayPerSector := atomic.LoadUint64(&r.DurDelayPerSector)
+	if durDelayPerSector > 0 {
+		time.Sleep(time.Duration(durDelayPerSector) * time.Microsecond)
 	}
 
 	if !r.Durable {
@@ -381,10 +380,11 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 // write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
 	// inject durability delay
-	if r.durDelayPerSector > 0 {
-		payloadLen := uint(0)
+	durDelayPerSector := atomic.LoadUint64(&r.DurDelayPerSector)
+	if durDelayPerSector > 0 {
+		payloadLen := uint64(0)
 		for i := 0; i < len(cmds); i++ {
-			payloadLen += uint(17 + len(cmds[i].V))
+			payloadLen += uint64(17 + len(cmds[i].V))
 		}
 
 		numSectors := payloadLen / 512
@@ -392,7 +392,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 			numSectors++
 		}
 
-		time.Sleep(time.Duration(numSectors*r.durDelayPerSector) * time.Microsecond)
+		time.Sleep(time.Duration(numSectors*durDelayPerSector) * time.Microsecond)
 	}
 
 	if !r.Durable {
@@ -815,6 +815,12 @@ func (r *Replica) run() {
 		case getView := <-r.GetViewChan:
 			r.handleGetViewFromClient(getView)
 
+		/**
+		 * ParamTweak:
+		 */
+		case ct := <-r.ParamTweakChan:
+			r.HandleParamTweakFromClient(ct)
+
 		//case <-gcTicker.C:
 		//	var garC debug.GCStats
 		//	debug.ReadGCStats(&garC)
@@ -822,6 +828,7 @@ func (r *Replica) run() {
 		//	fmt.Printf("NumGC: %v; PauseTotal: %v; Pause: %v; LastGC: %v\n", garC.NumGC, garC.PauseTotal, garC.Pause, garC.LastGC)
 		//	//fmt.Printf("Replica %v: preAcceptReply chan size: %v; proposal chan: %v\n", r.Id, len(r.preAcceptReplyChan), len(r.ProposeChan))
 		//	break
+
 		default:
 
 		}
