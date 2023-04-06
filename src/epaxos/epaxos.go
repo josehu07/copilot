@@ -121,6 +121,7 @@ type LeaderBookkeeping struct {
 	tryingToPreAccept bool
 	possibleQuorum    []bool
 	tpaOKs            int
+	leaderLogged      bool
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, durDelayPerSector uint) *Replica {
@@ -1020,7 +1021,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 		epaxosproto.PREACCEPTED,
 		seq,
 		deps,
-		&LeaderBookkeeping{proposals, 0, 0, true, 0, 0, 0, deps, comDeps, nil, false, false, nil, 0}, 0, 0,
+		&LeaderBookkeeping{proposals, 0, 0, true, 0, 0, 0, deps, comDeps, nil, false, false, nil, 0, false}, 0, 0,
 		nil}
 
 	r.updateConflicts(cmds, r.Id, instance, seq)
@@ -1029,11 +1030,13 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 		r.maxSeq = seq + 1
 	}
 
+	r.bcastPreAccept(r.Id, instance, ballot, cmds, seq, deps)
+
+	// logging happens concurrently with follower PreAccepts
 	r.recordInstanceMetadata(r.InstanceSpace[r.Id][instance])
 	r.recordCommands(cmds)
 	r.sync()
-
-	r.bcastPreAccept(r.Id, instance, ballot, cmds, seq, deps)
+	r.InstanceSpace[r.Id][instance].lb.leaderLogged = true
 
 	cpcounter += batchSize
 
@@ -1056,7 +1059,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 			epaxosproto.PREACCEPTED,
 			r.maxSeq,
 			deps,
-			&LeaderBookkeeping{nil, 0, 0, true, 0, 0, 0, deps, nil, nil, false, false, nil, 0},
+			&LeaderBookkeeping{nil, 0, 0, true, 0, 0, 0, deps, nil, nil, false, false, nil, 0, false},
 			0,
 			0,
 			nil}
@@ -1226,6 +1229,10 @@ func (r *Replica) handlePreAcceptReply(pareply *epaxosproto.PreAcceptReply) {
 
 	//can we commit on the fast path?
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && inst.lb.allEqual && allCommitted && isInitialBallot(inst.ballot) {
+		if !inst.lb.leaderLogged {
+			log.Fatal("Error: leader should have finished logging for this instance")
+		}
+
 		happy++
 		dlog.Printf("Fast path for instance %d.%d\n", pareply.Replica, pareply.Instance)
 		r.InstanceSpace[pareply.Replica][pareply.Instance].Status = epaxosproto.COMMITTED
@@ -1288,6 +1295,10 @@ func (r *Replica) handlePreAcceptOK(pareply *epaxosproto.PreAcceptOK) {
 
 	//can we commit on the fast path?
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && inst.lb.allEqual && allCommitted && isInitialBallot(inst.ballot) {
+		if !inst.lb.leaderLogged {
+			log.Fatal("Error: leader should have finished logging for this instance")
+		}
+
 		happy++
 		r.InstanceSpace[r.Id][pareply.Instance].Status = epaxosproto.COMMITTED
 		r.updateCommitted(r.Id)
@@ -1406,6 +1417,10 @@ func (r *Replica) handleAcceptReply(areply *epaxosproto.AcceptReply) {
 	inst.lb.acceptOKs++
 
 	if inst.lb.acceptOKs+1 > r.N/2 {
+		if !inst.lb.leaderLogged {
+			log.Fatal("Error: leader should have finished logging for this instance")
+		}
+
 		r.InstanceSpace[areply.Replica][areply.Instance].Status = epaxosproto.COMMITTED
 		r.updateCommitted(areply.Replica)
 		if inst.lb.clientProposals != nil && !r.Dreply {
@@ -1543,10 +1558,10 @@ func (r *Replica) startRecoveryForInstance(replica int32, instance int32) {
 
 	inst := r.InstanceSpace[replica][instance]
 	if inst.lb == nil {
-		inst.lb = &LeaderBookkeeping{nil, -1, 0, false, 0, 0, 0, nildeps, nil, nil, true, false, nil, 0}
+		inst.lb = &LeaderBookkeeping{nil, -1, 0, false, 0, 0, 0, nildeps, nil, nil, true, false, nil, 0, false}
 
 	} else {
-		inst.lb = &LeaderBookkeeping{inst.lb.clientProposals, -1, 0, false, 0, 0, 0, nildeps, nil, nil, true, false, nil, 0}
+		inst.lb = &LeaderBookkeeping{inst.lb.clientProposals, -1, 0, false, 0, 0, 0, nildeps, nil, nil, true, false, nil, 0, false}
 	}
 
 	if inst.Status == epaxosproto.ACCEPTED {

@@ -529,7 +529,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		r.bcastAccept(instNo, r.defaultBallot, cmds)
 		dlog.Printf("Fast round for instance %d\n", instNo)
 
-		// logging happens concurrently with follower accepts
+		// logging happens concurrently with follower Accepts
 		r.recordInstanceMetadata(r.instanceSpace[instNo])
 		r.recordCommands(cmds)
 		r.sync()
@@ -699,7 +699,7 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 			}
 			r.bcastAccept(preply.Instance, inst.ballot, inst.cmds)
 
-			// logging happens concurrently with follower accepts
+			// logging happens concurrently with follower Accepts
 			r.recordInstanceMetadata(r.instanceSpace[preply.Instance])
 			r.sync()
 			inst.lb.leaderLogged = true
