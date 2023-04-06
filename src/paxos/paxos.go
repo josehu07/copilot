@@ -70,6 +70,7 @@ type LeaderBookkeeping struct {
 	prepareOKs      int
 	acceptOKs       int
 	nacks           int
+	leaderLogged    bool
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint) *Replica {
@@ -515,7 +516,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 			cmds,
 			r.makeUniqueBallot(0),
 			PREPARING,
-			&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
+			&LeaderBookkeeping{proposals, 0, 0, 0, 0, false}}
 		r.bcastPrepare(instNo, r.makeUniqueBallot(0), true)
 		dlog.Printf("Classic round for instance %d\n", instNo)
 	} else {
@@ -523,14 +524,16 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 			cmds,
 			r.defaultBallot,
 			PREPARED,
-			&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
-
-		r.recordInstanceMetadata(r.instanceSpace[instNo])
-		r.recordCommands(cmds)
-		r.sync()
+			&LeaderBookkeeping{proposals, 0, 0, 0, 0, false}}
 
 		r.bcastAccept(instNo, r.defaultBallot, cmds)
 		dlog.Printf("Fast round for instance %d\n", instNo)
+
+		// logging happens concurrently with follower accepts
+		r.recordInstanceMetadata(r.instanceSpace[instNo])
+		r.recordCommands(cmds)
+		r.sync()
+		r.instanceSpace[instNo].lb.leaderLogged = true
 	}
 }
 
@@ -694,9 +697,12 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 			if inst.ballot > r.defaultBallot {
 				r.defaultBallot = inst.ballot
 			}
+			r.bcastAccept(preply.Instance, inst.ballot, inst.cmds)
+
+			// logging happens concurrently with follower accepts
 			r.recordInstanceMetadata(r.instanceSpace[preply.Instance])
 			r.sync()
-			r.bcastAccept(preply.Instance, inst.ballot, inst.cmds)
+			inst.lb.leaderLogged = true
 		}
 	} else {
 		// TODO: there is probably another active leader
@@ -727,6 +733,10 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 	if areply.OK == TRUE {
 		inst.lb.acceptOKs++
 		if inst.lb.acceptOKs+1 > r.N>>1 {
+			if !inst.lb.leaderLogged {
+				log.Fatal("Error: leader should have finished logging for this instance")
+			}
+
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
 			if inst.lb.clientProposals != nil && !r.Dreply {
