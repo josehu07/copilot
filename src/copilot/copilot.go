@@ -252,7 +252,7 @@ type LeaderBookkeeping struct {
 	depViewId          int32
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, rreply bool, durDelayPerSector uint) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, rreply bool, durDelayPerSector uint64) *Replica {
 	r := &Replica{
 		genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable, durDelayPerSector),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -359,7 +359,7 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	// inject durability delay
 	durDelayPerSector := atomic.LoadUint64(&r.DurDelayPerSector)
 	if durDelayPerSector > 0 {
-		time.Sleep(time.Duration(durDelayPerSector) * time.Microsecond)
+		time.Sleep(time.Duration(durDelayPerSector) * time.Nanosecond)
 	}
 
 	if !r.Durable {
@@ -392,7 +392,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 			numSectors++
 		}
 
-		time.Sleep(time.Duration(numSectors*durDelayPerSector) * time.Microsecond)
+		time.Sleep(time.Duration(numSectors*durDelayPerSector) * time.Nanosecond)
 	}
 
 	if !r.Durable {

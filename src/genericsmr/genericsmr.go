@@ -92,7 +92,7 @@ type Replica struct {
 	ParamTweakChan    chan *ParamTweak
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint64) *Replica {
 	r := &Replica{
 		len(peerAddrList),
 		int32(id),
@@ -119,7 +119,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(chan bool, 1200),
 		make(chan *Client, CHAN_BUFFER_SIZE),
 		make(chan *GetView, CHAN_BUFFER_SIZE),
-		uint64(durDelayPerSector),
+		durDelayPerSector,
 		make(chan *ParamTweak, CHAN_BUFFER_SIZE),
 	}
 

@@ -43,7 +43,7 @@ var rreply *bool = flag.Bool("rreply", false, "Non-leader replicas reply to clie
 /* Added by Guanzhou. */
 
 var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
-var durDelayPerSector *uint = flag.Uint("durDelay", 0, "If > 0, add given durability delay (microsecs) per sector (512B).")
+var durDelayPerSector *uint64 = flag.Uint64("durDelay", 0, "If > 0, add given durability delay (nanosecs) per sector (512B).")
 
 /* ===== */
 
