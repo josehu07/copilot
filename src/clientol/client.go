@@ -666,47 +666,62 @@ func checkAndUpdateViews(viewChangeChan chan *View, views []*View) {
 }
 
 func waitReplies(readers []*bufio.Reader, leader int, n int, done chan int32, expected int) {
-	//e := false
-
+	var msgType byte
+	var err error
 	reply := new(genericsmrproto.ProposeReplyTS)
-	//for i := 0; i < n; i++ {
+
 	for true {
-		if err := reply.Unmarshal(readers[leader]); err != nil {
-			//e = true
-			continue
-			//return
+		if msgType, err = readers[leader].ReadByte(); err != nil {
+			break
 		}
-		if reply.OK != 0 {
-			successful[leader]++
-			done <- reply.CommandId
-			if expected == successful[leader] {
-				return
+
+		switch msgType {
+		case genericsmrproto.PROPOSE_REPLY:
+			if err = reply.Unmarshal(readers[leader]); err != nil {
+				break
 			}
-			//fmt.Println(reply.Value)
+			if reply.OK != 0 {
+				successful[leader]++
+				//done <- &Response{OpId: reply.CommandId, rcvingTime: time.Now()}
+				done <- reply.CommandId
+				if expected == successful[leader] {
+					return
+				}
+			}
+			break
+		default:
+			break
 		}
-
 	}
-
 }
 
 func waitRepliesRandomLeader(readers []*bufio.Reader, n int, done chan int32) {
-	//e := false
-
+	var msgType byte
+	var err error
 	reply := new(genericsmrproto.ProposeReplyTS)
 
 	for true {
 		for i := 0; i < n; i++ {
-			if err := reply.Unmarshal(readers[i]); err != nil {
+			if msgType, err = readers[i].ReadByte(); err != nil {
 				continue
 			}
-			if reply.OK != 0 {
-				successful[i]++
-				done <- reply.CommandId
-				//fmt.Println(reply.Value)
+
+			switch msgType {
+			case genericsmrproto.PROPOSE_REPLY:
+				if err = reply.Unmarshal(readers[i]); err != nil {
+					continue
+				}
+				if reply.OK != 0 {
+					successful[i]++
+					//done <- &Response{OpId: reply.CommandId, rcvingTime: time.Now()}
+					done <- reply.CommandId
+				}
+				break
+			default:
+				break
 			}
 		}
 	}
-
 }
 
 func waitRepliesPilot(readers []*bufio.Reader, leader int, done chan Response, viewChangeChan chan *View, expected int) {
