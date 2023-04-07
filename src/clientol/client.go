@@ -844,10 +844,8 @@ func processAndPrintThroughputs(throughputs []DataPoint) (error, string) {
 				float64(throughputs[newlen-1].elapse-throughputs[0].elapse)), 10)
 	}
 
-	//fmt.Fprintf(os.Stderr, "%v\n", overallTput)
-	//fmt.Fprintf(os.Stderr, "%v\n", trimmedOverallTput)
-	fmt.Printf("%s\n", overallTput)
-	fmt.Printf("%s\n", trimmedOverallTput)
+	fmt.Printf("Overall throughput: %s\n", overallTput)
+	fmt.Printf("Overall throughput (trimmed): %s\n", trimmedOverallTput)
 
 	_, err = f.WriteString(fmt.Sprintf("%s\n", overallTput))
 	_, err = f.WriteString(fmt.Sprintf("%s\n", trimmedOverallTput))
