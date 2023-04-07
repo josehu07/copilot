@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"os/exec"
 	"os/signal"
 	filepath2 "path/filepath"
 	"runtime"
@@ -23,11 +24,10 @@ import (
 	"time"
 )
 
-// const REQUEST_TIMEOUT = 1 * time.Second
 const REQUEST_TIMEOUT = 100 * time.Millisecond
 const GET_VIEW_TIMEOUT = 100 * time.Millisecond
 const GC_DEBUG_ENABLED = false
-const PRINT_STATS = true
+const PRINT_STATS = false
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
 var masterPort *int = flag.Int("mport", 7087, "Master port.  Defaults to 7077.")
@@ -46,6 +46,13 @@ var v = flag.Float64("v", 1, "Zipfian v parameter")
 var cid *int = flag.Int("id", -1, "Client ID.")
 var cpuProfile *string = flag.String("cpuprofile", "", "Name of file for CPU profile. If empty, no profile is created.")
 var maxRuntime *int = flag.Int("runtime", -1, "Max duration to run experiment in second. If negative, stop after sending up to reqsNb requests")
+
+/* Added by Guanzhou. */
+
+var valueSize = flag.Uint64("vSize", 8, "Value string length")
+var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
+
+/* ===== */
 
 // var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var trim *float64 = flag.Float64("trim", 0.25, "Exclude some fraction of data at the beginning and at the end.")
@@ -71,16 +78,13 @@ var rsp []bool
 // var rarray []int
 
 var latencies []int64
-
-//var readlatencies []int64
-//var writelatencies []int64
+var readlatencies []int64
+var writelatencies []int64
 
 var timestamps []time.Time
 
 type DataPoint struct {
-	//prevElapse time.Duration
-	elapse time.Duration
-	//prevReqsCount int64
+	elapse    time.Duration
 	reqsCount int64
 	t         time.Time
 }
@@ -100,11 +104,39 @@ type View struct {
 
 var throughputs []DataPoint
 
+func pinCoresAtBase(base int) {
+	numCores := runtime.NumCPU()
+	log.Println("Number of CPU cores:", numCores)
+
+	pid := os.Getpid()
+	if base < 0 || base > numCores-2 {
+		log.Fatal("Error: invalid pinCoreBase", base)
+		os.Exit(1)
+	}
+	mask_str := fmt.Sprintf("%d,%d", base, base+1)
+	cmd := exec.Command("taskset", "--cpu-list", "-p", mask_str, fmt.Sprintf("%d", pid))
+	out, err := cmd.Output()
+	if err != nil {
+		log.Fatal("Error setting CPU affinity:", err)
+		os.Exit(1)
+	}
+	log.Printf("%s", out)
+}
+
 func main() {
 
 	flag.Parse()
 
 	runtime.GOMAXPROCS(*procs)
+
+	// set CPU cores affinity
+	if *pinCoreBase >= 0 {
+		if *procs > 2 {
+			log.Fatal("Error: -pinCoreBase flag only supports GOMAXPROCS <= 2")
+			os.Exit(1)
+		}
+		pinCoresAtBase(*pinCoreBase)
+	}
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -219,7 +251,7 @@ func main() {
 		}
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 	/*registerClientIdSuccessful := waitRegisterClientIdReplies(readers, N)
 	fmt.Printf("Client Id Registration succeeds: %d out of %d\n", registerClientIdSuccessful, N)*/
 
@@ -242,7 +274,8 @@ func main() {
 				log.Fatalf("Error making the GetLeader RPC\n")
 			}
 			leader = reply.LeaderId
-			log.Printf("The leader is replica %d\n", leader)
+			fmt.Printf("The leader is replica %d (%s)\n", leader, rlReply.ReplicaList[leader])
+
 		} else { // two leaders
 			reply := new(masterproto.GetTwoLeadersReply)
 
@@ -252,7 +285,7 @@ func main() {
 			leader = reply.Leader1Id
 			leader2 = reply.Leader2Id
 			//fmt.Printf("The leader 1 is replica %d. The leader 2 is replica %d\n", leader, leader2)
-			fmt.Printf("The leader 1 is replica %d (%s). The leader 2 is replica %d (%s)\n", leader, rlReply.ReplicaList[leader], leader2, rlReply.ReplicaList[leader2])
+			fmt.Printf("The leader 1 is replica %d (%s); The leader 2 is replica %d (%s)\n", leader, rlReply.ReplicaList[leader], leader2, rlReply.ReplicaList[leader2])
 
 			// Init views. Assume initial view id is 0
 			views = make([]*View, 2)
@@ -300,8 +333,8 @@ func main() {
 	}
 
 	latencies = make([]int64, 0, *reqsNb)
-	// readlatencies = make([]int64, 0, *reqsNb)
-	// writelatencies = make([]int64, 0, *reqsNb)
+	readlatencies = make([]int64, 0, *reqsNb)
+	writelatencies = make([]int64, 0, *reqsNb)
 	timestamps = make([]time.Time, 0, *reqsNb)
 
 	throughputs = make([]DataPoint, 0, 600)
@@ -311,7 +344,7 @@ func main() {
 	// incoming request channel
 	reqsChan := make(chan int, 100000) /*keep max outstanding requests at 100000*/
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	before_total := time.Now()
 	//lastThroughputTime := before_total
@@ -360,7 +393,7 @@ func main() {
 
 	// compose value
 	rand.Seed(time.Now().UnixNano())
-	vbytes := make([]byte, 8)
+	vbytes := make([]byte, *valueSize)
 	rand.Read(vbytes)
 	vstr := string(vbytes)
 
