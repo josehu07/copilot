@@ -444,66 +444,102 @@ func main() {
 
 			//checkAndUpdateViews(viewChangeChan, views)
 
-			// get random server to ask about new view
-			if views[0].Active {
-				leader = int(views[0].ReplicaId)
+			if *twoLeaders {
+				// get random server to ask about new view
+				if views[0].Active {
+					leader = int(views[0].ReplicaId)
+					if leader >= 0 {
+						writers[leader].WriteByte(genericsmrproto.PROPOSE)
+						args.Marshal(writers[leader])
+						if pilotErr = writers[leader].Flush(); pilotErr != nil {
+							views[0].Active = false
+						} else {
+							succeeded = true
+						}
+					}
+				}
+				if !views[0].Active && (lastGVSent0 == (time.Time{}) || time.Since(lastGVSent0) >= GET_VIEW_TIMEOUT) {
+					select {
+					case getViewChan <- int32(0):
+					default:
+						break
+					}
+				}
+
+				if views[1].Active {
+					leader2 = int(views[1].ReplicaId)
+					/* Send to second leader for two-leader protocol */
+					if *twoLeaders && !*sendOnce && leader2 >= 0 {
+						writers[leader2].WriteByte(genericsmrproto.PROPOSE)
+						args.Marshal(writers[leader2])
+						if pilotErr1 = writers[leader2].Flush(); pilotErr1 != nil {
+							views[1].Active = false
+						} else {
+							succeeded = true
+						}
+					}
+				}
+				if !views[1].Active && (lastGVSent1 == (time.Time{}) || time.Since(lastGVSent1) >= GET_VIEW_TIMEOUT) {
+					select {
+					case getViewChan <- int32(1):
+					default:
+						break
+					}
+				}
+				// Cannot send to any pilots, put this request back to the queue
+				if !succeeded {
+					select {
+					case reqsChan <- i:
+
+					default:
+						// prevent deadlock if this reqsChan is full.
+						// just drop this request.
+						break
+					}
+				} else {
+					// we can send the request to at least one pilot
+					// start timer to timeout on waiting for response
+					go func(opId int) {
+						time.Sleep(REQUEST_TIMEOUT)
+						if !rsp[opId] {
+							reqsChan <- opId
+						}
+					}(i)
+				} // end of copilot
+			} else {
+				if isRandomLeader {
+					leader = i % N
+				} else if *noLeader == false {
+					leader = 0
+				}
+
 				if leader >= 0 {
 					writers[leader].WriteByte(genericsmrproto.PROPOSE)
 					args.Marshal(writers[leader])
-					if pilotErr = writers[leader].Flush(); pilotErr != nil {
-						views[0].Active = false
-					} else {
+					if err := writers[leader].Flush(); err == nil {
 						succeeded = true
 					}
 				}
-			}
-			if !views[0].Active && (lastGVSent0 == (time.Time{}) || time.Since(lastGVSent0) >= GET_VIEW_TIMEOUT) {
-				select {
-				case getViewChan <- int32(0):
-				default:
-					break
-				}
-			}
 
-			if views[1].Active {
-				leader2 = int(views[1].ReplicaId)
-				/* Send to second leader for two-leader protocol */
-				if *twoLeaders && !*sendOnce && leader2 >= 0 {
-					writers[leader2].WriteByte(genericsmrproto.PROPOSE)
-					args.Marshal(writers[leader2])
-					if pilotErr1 = writers[leader2].Flush(); pilotErr1 != nil {
-						views[1].Active = false
-					} else {
-						succeeded = true
-					}
-				}
-			}
-			if !views[1].Active && (lastGVSent1 == (time.Time{}) || time.Since(lastGVSent1) >= GET_VIEW_TIMEOUT) {
-				select {
-				case getViewChan <- int32(1):
-				default:
-					break
-				}
-			}
-			// Cannot send to any pilots, put this request back to the queue
-			if !succeeded {
-				select {
-				case reqsChan <- i:
+				if !succeeded {
+					select {
+					case reqsChan <- i:
 
-				default:
-					// prevent deadlock if this reqsChan is full.
-					// just drop this request.
-					break
-				}
-			} else {
-				// we can send the request to at least one pilot
-				// start timer to timeout on waiting for response
-				go func(opId int) {
-					time.Sleep(REQUEST_TIMEOUT)
-					if !rsp[opId] {
-						reqsChan <- opId
+					default:
+						// prevent deadlock if this reqsChan is full.
+						// just drop this request.
+						break
 					}
-				}(i)
+				} else {
+					// we can send the request to at least one pilot
+					// start timer to timeout on waiting for response
+					go func(opId int) {
+						time.Sleep(REQUEST_TIMEOUT)
+						if !rsp[opId] {
+							reqsChan <- opId
+						}
+					}(i)
+				}
 			}
 
 		case e := <-pilot0ReplyChan:
@@ -516,6 +552,19 @@ func main() {
 			}
 
 			rsp[e.OpId] = true
+
+		case e := <-leaderReplyChan:
+			repliedCmdId := e
+			rcvingTime := time.Now()
+			lat := int64(rcvingTime.Sub(timestamps[repliedCmdId]) / time.Microsecond)
+			if latencies[repliedCmdId] == int64(0) { /*1st response*/
+				reqsCount++
+			}
+			if latencies[repliedCmdId] == int64(0) || latencies[repliedCmdId] > lat {
+				latencies[repliedCmdId] = lat
+			}
+
+			rsp[repliedCmdId] = true
 
 		case pid := <-getViewChan:
 			getViewArgs := &genericsmrproto.GetView{pid}
