@@ -250,6 +250,7 @@ type LeaderBookkeeping struct {
 	tpaOKs             int
 	numDepSeens        int
 	depViewId          int32
+	leaderLogged       bool
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, beacon bool, durable bool, rreply bool, durDelayPerSector uint64) *Replica {
@@ -1828,16 +1829,18 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 		ballot,
 		copilotproto.PREACCEPTED_EQ,
 		deps,
-		&LeaderBookkeeping{proposals, 0, 0, true, 0, 0, preAcceptReplyDeps, 0, 0, deps, comDeps, nil, false, false, nil, 0, 1, depViewId}, 0, 0,
+		&LeaderBookkeeping{proposals, 0, 0, true, 0, 0, preAcceptReplyDeps, 0, 0, deps, comDeps, nil, false, false, nil, 0, 1, depViewId, false}, 0, 0,
 		nil, time.Now(), time.Time{}, false, depViewId, -1}
-
-	r.recordInstanceMetadata(r.InstanceSpace[replica][instance])
-	r.recordCommands(cmds)
-	r.sync()
 
 	dlog.Printf("Replica %d is sending PreAccept for (%d.%d, %d):\n", r.Id, r.Id, instance, deps[0])
 	r.bcastPreAccept(replica, instance, viewId, ballot, cmds, deps, depViewId)
 	//go r.startFastPathClock(&instanceId{r.Id, instance})
+
+	// logging happens concurrently with follower PreAccepts
+	r.recordInstanceMetadata(r.InstanceSpace[replica][instance])
+	r.recordCommands(cmds)
+	r.sync()
+	r.InstanceSpace[replica][instance].lb.leaderLogged = true
 
 	cpcounter += batchSize
 
@@ -1858,7 +1861,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 			0,
 			copilotproto.PREACCEPTED_EQ,
 			deps,
-			&LeaderBookkeeping{nil, 0, 0, true, 0, 0, nil, 0, 0, deps, nil, nil, false, false, nil, 0, 1, depViewId},
+			&LeaderBookkeeping{nil, 0, 0, true, 0, 0, nil, 0, 0, deps, nil, nil, false, false, nil, 0, 1, depViewId, false},
 			0,
 			0,
 			nil, time.Time{}, time.Time{}, false, -1, -1}
@@ -2047,6 +2050,9 @@ func (r *Replica) handlePreAcceptReply(pareply *copilotproto.PreAcceptReply) {
 	// Fast path
 	// f + (f+1)/2 - 1
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && isInitialBallot(inst.ballot) {
+		if !inst.lb.leaderLogged {
+			log.Fatal("Error: leader should have finished logging for this instance")
+		}
 
 		inst.Deps[0] = inst.lb.originalDeps[0]
 		inst.Status = copilotproto.COMMITTED
@@ -2228,6 +2234,10 @@ func (r *Replica) handleAcceptReply(areply *copilotproto.AcceptReply) {
 	inst.lb.acceptOKs++
 
 	if inst.lb.acceptOKs+1 > r.N/2 {
+		if !inst.lb.leaderLogged {
+			log.Fatal("Error: leader should have finished logging for this instance")
+		}
+
 		r.InstanceSpace[areply.Replica][areply.Instance].Status = copilotproto.COMMITTED
 		r.updateCommitted(areply.Replica)
 		inst.committedTime = time.Now()
@@ -2359,9 +2369,9 @@ func (r *Replica) startRecoveryForInstance(replica int32, instance int32) {
 		return
 	}
 	if inst.lb == nil {
-		inst.lb = &LeaderBookkeeping{nil, -1, 0, false, 0, 0, nil, 0, 0, nildeps, nil, nil, true, false, nil, 0, 0, -1}
+		inst.lb = &LeaderBookkeeping{nil, -1, 0, false, 0, 0, nil, 0, 0, nildeps, nil, nil, true, false, nil, 0, 0, -1, false}
 	} else {
-		inst.lb = &LeaderBookkeeping{inst.lb.clientProposals, -1, 0, false, 0, 0, nil, 0, 0, nildeps, nil, nil, true, false, nil, 0, 0, -1}
+		inst.lb = &LeaderBookkeeping{inst.lb.clientProposals, -1, 0, false, 0, 0, nil, 0, 0, nildeps, nil, nil, true, false, nil, 0, 0, -1, false}
 	}
 
 	if inst.Status == copilotproto.ACCEPTED {
