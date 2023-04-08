@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// check batchSizeLogName
-	var batchSizeLogFile *os.File
+	var batchSizeLogFile *os.File = nil
 	if *batchSizeLogName != "" {
 		f, err := os.OpenFile(*batchSizeLogName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {

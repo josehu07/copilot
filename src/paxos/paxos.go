@@ -102,7 +102,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		true,
 		-1,
 		batchSizeLogFile,
-		make([]int, 10000)}
+		nil}
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
@@ -554,7 +554,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	}
 
 	dlog.Printf("Batched %d\n", batchSize)
-	if r.batchSizeLogFile != nil {
+	if r.batchSizeLogFile != nil && batchSize > 0 {
 		fmt.Println("??? batched", batchSize)
 		r.batchSizeBuffer = append(r.batchSizeBuffer, batchSize)
 	}
