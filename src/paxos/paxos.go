@@ -213,7 +213,7 @@ func (r *Replica) benchLoggingClock() {
 
 func (r *Replica) benchLoggingFlush() {
 	// batch size logging
-	if r.batchSizeLogFile != nil {
+	if r.batchSizeLogFile != nil && len(r.batchSizeBuffer) > 0 {
 		var bsBytes bytes.Buffer
 		for _, batchSize := range r.batchSizeBuffer {
 			bsBytes.WriteString(fmt.Sprintf("%d %d\n", r.Id, batchSize))
