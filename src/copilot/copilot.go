@@ -2052,7 +2052,7 @@ func (r *Replica) handlePreAcceptReply(pareply *copilotproto.PreAcceptReply) {
 	// f + (f+1)/2 - 1
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && isInitialBallot(inst.ballot) {
 		if !inst.lb.leaderLogged {
-			fmt.Println("???", r.Id, pareply.Replica, pareply.Instance, "leaderLogged")
+			fmt.Println("!!!", r.Id, pareply.Replica, pareply.Instance, "NOT LOGGED")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
@@ -2237,7 +2237,7 @@ func (r *Replica) handleAcceptReply(areply *copilotproto.AcceptReply) {
 
 	if inst.lb.acceptOKs+1 > r.N/2 {
 		if !inst.lb.leaderLogged {
-			fmt.Println("???", r.Id, areply.Replica, areply.Instance, "leaderLogged")
+			fmt.Println("!!!", r.Id, areply.Replica, areply.Instance, "NOT LOGGED")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
