@@ -1841,6 +1841,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 	r.recordCommands(cmds)
 	r.sync()
 	r.InstanceSpace[replica][instance].lb.leaderLogged = true
+	fmt.Println("???", r.Id, replica, instance, "leaderLogged")
 
 	cpcounter += batchSize
 
@@ -2051,6 +2052,7 @@ func (r *Replica) handlePreAcceptReply(pareply *copilotproto.PreAcceptReply) {
 	// f + (f+1)/2 - 1
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && isInitialBallot(inst.ballot) {
 		if !inst.lb.leaderLogged {
+			fmt.Println("???", r.Id, pareply.Replica, pareply.Instance, "leaderLogged")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
@@ -2235,6 +2237,7 @@ func (r *Replica) handleAcceptReply(areply *copilotproto.AcceptReply) {
 
 	if inst.lb.acceptOKs+1 > r.N/2 {
 		if !inst.lb.leaderLogged {
+			fmt.Println("???", r.Id, areply.Replica, areply.Instance, "leaderLogged")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
