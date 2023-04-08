@@ -1841,7 +1841,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 	r.recordCommands(cmds)
 	r.sync()
 	r.InstanceSpace[replica][instance].lb.leaderLogged = true
-	fmt.Println("???", r.Id, replica, instance, "leaderLogged")
+	fmt.Println("??1", r.Id, replica, instance, "leaderLogged")
 
 	cpcounter += batchSize
 
@@ -2551,6 +2551,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 		//Case 1 (2.3): at least one replica has accepted this instance
 		if ir.status == copilotproto.ACCEPTED ||
 			(!ir.leaderResponded && ir.originalDepCount >= slowQS-1) || (ir.leaderResponded && ir.originalDepCount >= slowQS) {
+			/* Guanzhou: this branch seems problematic -- skips necessary durability logging */
 			fmt.Println("*** A")
 			inst.Cmds = ir.cmds
 			inst.Deps = ir.deps
@@ -2562,22 +2563,29 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 				inst.lb.depViewId = depViewId
 			}
 			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, inst.Deps, depViewId)
+
+			// logging happens concurrently with follower Accepts
+			r.recordInstanceMetadata(r.InstanceSpace[preply.Replica][preply.Instance])
+			r.recordCommands(ir.cmds)
+			r.sync()
+			r.InstanceSpace[preply.Replica][preply.Instance].lb.leaderLogged = true
+			fmt.Println("??2", r.Id, preply.Replica, preply.Instance, "leaderLogged")
+
 			//dlog.Println(r.Id, "...in here 1...")
 		} else {
 			fmt.Println("*** B")
-			/* Guanzhou: this branch seems problematic -- skips necessary durability logging */
-			// deps := []int32{-1}
-			// inst.lb.preparing = false
-			// r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
-			// 	make([]state.Command, 0),
-			// 	inst.ballot,
-			// 	copilotproto.ACCEPTED,
-			// 	deps,
-			// 	inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
-			// r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
-			/* TODO: Probably should do the following instead? */
+			deps := []int32{-1}
 			inst.lb.preparing = false
-			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
+			r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
+				make([]state.Command, 0),
+				inst.ballot,
+				copilotproto.ACCEPTED,
+				deps,
+				inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
+			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
+			/* Guanzhou: Probably should do the following instead? */
+			// inst.lb.preparing = false
+			// r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
 		}
 	} else {
 		fmt.Println("*** C")
