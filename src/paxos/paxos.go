@@ -26,9 +26,6 @@ const FALSE = uint8(0)
 const MAX_BATCH = 5000
 const BATCH_INTERVAL = 100 * time.Microsecond
 
-/**
- * Server-side logging for benchmark purposes.
- */
 const BENCH_LOGGING_INTERVAL = 200 * time.Millisecond
 
 type Replica struct {
@@ -216,7 +213,7 @@ func (r *Replica) benchLoggingFlush() {
 	if r.batchSizeLogFile != nil && len(r.batchSizeBuffer) > 0 {
 		var bsBytes bytes.Buffer
 		for _, batchSize := range r.batchSizeBuffer {
-			bsBytes.WriteString(fmt.Sprintf("%d %d\n", r.Id, batchSize))
+			bsBytes.WriteString(fmt.Sprintf("bs %d %d\n", r.Id, batchSize))
 		}
 
 		_, err := bsBytes.WriteTo(r.batchSizeLogFile)
@@ -249,9 +246,6 @@ func (r *Replica) run() {
 	clockChan = make(chan bool, 1)
 	go r.clock()
 
-	/**
-	 * Server-side logging for benchmark purposes.
-	 */
 	benchLoggingClockChan = make(chan bool, 1)
 	go r.benchLoggingClock()
 
@@ -334,9 +328,6 @@ func (r *Replica) run() {
 			onOffProposeChan = r.ProposeChan
 			break
 
-		/**
-		 * Server-side logging for benchmark purposes.
-		 */
 		case <-benchLoggingClockChan:
 			r.benchLoggingFlush()
 			break
@@ -555,7 +546,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 
 	dlog.Printf("Batched %d\n", batchSize)
 	if r.batchSizeLogFile != nil && batchSize > 0 {
-		fmt.Println("??? batched", batchSize)
+		// fmt.Println("??? batched", batchSize)
 		r.batchSizeBuffer = append(r.batchSizeBuffer, batchSize)
 	}
 
