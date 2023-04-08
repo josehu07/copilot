@@ -2574,18 +2574,19 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			//dlog.Println(r.Id, "...in here 1...")
 		} else {
 			fmt.Println("*** B")
-			deps := []int32{-1}
+			/* Guanzhou: Probably should do the following? */
 			inst.lb.preparing = false
-			r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
-				make([]state.Command, 0),
-				inst.ballot,
-				copilotproto.ACCEPTED,
-				deps,
-				inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
-			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
-			/* Guanzhou: Probably should do the following instead? */
+			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
+			/* instead of ... */
+			// deps := []int32{-1}
 			// inst.lb.preparing = false
-			// r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
+			// r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
+			// 	make([]state.Command, 0),
+			// 	inst.ballot,
+			// 	copilotproto.ACCEPTED,
+			// 	deps,
+			// 	inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
+			// r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
 		}
 	} else {
 		fmt.Println("*** C")
