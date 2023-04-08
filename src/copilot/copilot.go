@@ -2570,7 +2570,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			// 	deps,
 			// 	inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
 			// r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
-			/* Probably should do the following instead */
+			/* TODO: Probably should do the following instead? */
 			inst.lb.preparing = false
 			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
 		}
