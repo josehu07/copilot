@@ -1,6 +1,7 @@
 package paxos
 
 import (
+	"bytes"
 	"dlog"
 	"encoding/binary"
 	"fastrpc"
@@ -9,6 +10,7 @@ import (
 	"genericsmrproto"
 	"io"
 	"log"
+	"os"
 	"paxosproto"
 	"state"
 	"sync/atomic"
@@ -23,6 +25,11 @@ const FALSE = uint8(0)
 
 const MAX_BATCH = 5000
 const BATCH_INTERVAL = 100 * time.Microsecond
+
+/**
+ * Server-side logging for benchmark purposes.
+ */
+const BENCH_LOGGING_INTERVAL = 200 * time.Millisecond
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -46,6 +53,10 @@ type Replica struct {
 	counter             int
 	flush               bool
 	committedUpTo       int32
+
+	// batch size logging
+	batchSizeLogFile *os.File
+	batchSizeBuffer  []int
 }
 
 type InstanceStatus int
@@ -73,7 +84,7 @@ type LeaderBookkeeping struct {
 	leaderLogged    bool
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint64) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint64, batchSizeLogFile *os.File) *Replica {
 	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable, durDelayPerSector),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -89,7 +100,9 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		false,
 		0,
 		true,
-		-1}
+		-1,
+		batchSizeLogFile,
+		make([]int, 10000)}
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
@@ -186,6 +199,35 @@ func (r *Replica) clock() {
 	}
 }
 
+/**
+ * Server-side logging for benchmark purposes.
+ */
+var benchLoggingClockChan chan bool
+
+func (r *Replica) benchLoggingClock() {
+	for !r.Shutdown {
+		time.Sleep(BENCH_LOGGING_INTERVAL)
+		benchLoggingClockChan <- true
+	}
+}
+
+func (r *Replica) benchLoggingFlush() {
+	// batch size logging
+	if r.batchSizeLogFile != nil {
+		var bsBytes bytes.Buffer
+		for _, batchSize := range r.batchSizeBuffer {
+			bsBytes.WriteString(fmt.Sprintf("%d %d\n", r.Id, batchSize))
+		}
+
+		_, err := bsBytes.WriteTo(r.batchSizeLogFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		r.batchSizeBuffer = nil
+	}
+}
+
 /* Main event processing loop */
 
 func (r *Replica) run() {
@@ -206,6 +248,12 @@ func (r *Replica) run() {
 
 	clockChan = make(chan bool, 1)
 	go r.clock()
+
+	/**
+	 * Server-side logging for benchmark purposes.
+	 */
+	benchLoggingClockChan = make(chan bool, 1)
+	go r.benchLoggingClock()
 
 	onOffProposeChan := r.ProposeChan
 
@@ -284,6 +332,13 @@ func (r *Replica) run() {
 		case <-clockChan:
 			//activate the new proposals channel
 			onOffProposeChan = r.ProposeChan
+			break
+
+		/**
+		 * Server-side logging for benchmark purposes.
+		 */
+		case <-benchLoggingClockChan:
+			r.benchLoggingFlush()
 			break
 
 		case propose := <-onOffProposeChan:
@@ -499,6 +554,10 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	}
 
 	dlog.Printf("Batched %d\n", batchSize)
+	if r.batchSizeLogFile != nil {
+		fmt.Println("??? batched", batchSize)
+		r.batchSizeBuffer = append(r.batchSizeBuffer, batchSize)
+	}
 
 	cmds := make([]state.Command, batchSize)
 	proposals := make([]*genericsmr.Propose, batchSize)

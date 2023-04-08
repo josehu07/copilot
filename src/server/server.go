@@ -44,6 +44,7 @@ var rreply *bool = flag.Bool("rreply", false, "Non-leader replicas reply to clie
 
 var pinCoreBase *int = flag.Int("pinCoreBase", -1, "If >= 0, set CPU cores affinity to cores starting at base.")
 var durDelayPerSector *uint64 = flag.Uint64("durDelay", 0, "If > 0, add given durability delay (nanosecs) per sector (512B).")
+var batchSizeLogName *string = flag.String("bsLogName", "", "If non-empty, log batch sizes to this file.")
 
 /* ===== */
 
@@ -85,6 +86,16 @@ func main() {
 		log.Fatal("Error: invalid -durDelay value:", *durDelayPerSector)
 	}
 
+	// check batchSizeLogName
+	var batchSizeLogFile *os.File
+	if *batchSizeLogName != "" {
+		f, err := os.OpenFile(*batchSizeLogName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		batchSizeLogFile = f
+	}
+
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -123,7 +134,7 @@ func main() {
 		rpc.Register(rep)
 	} else {
 		log.Println("Starting classic Paxos replica...")
-		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable, *durDelayPerSector)
+		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable, *durDelayPerSector, batchSizeLogFile)
 		rpc.Register(rep)
 	}
 
