@@ -2551,6 +2551,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 		//Case 1 (2.3): at least one replica has accepted this instance
 		if ir.status == copilotproto.ACCEPTED ||
 			(!ir.leaderResponded && ir.originalDepCount >= slowQS-1) || (ir.leaderResponded && ir.originalDepCount >= slowQS) {
+			fmt.Println("*** A")
 			inst.Cmds = ir.cmds
 			inst.Deps = ir.deps
 			inst.Status = copilotproto.ACCEPTED
@@ -2563,6 +2564,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, inst.Deps, depViewId)
 			//dlog.Println(r.Id, "...in here 1...")
 		} else {
+			fmt.Println("*** B")
 			/* Guanzhou: this branch seems problematic -- skips necessary durability logging */
 			// deps := []int32{-1}
 			// inst.lb.preparing = false
@@ -2578,7 +2580,8 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
 		}
 	} else {
-		dlog.Println(r.Id, "...in here 4...")
+		fmt.Println("*** C")
+		// dlog.Println(r.Id, "...in here 4...")
 		//try to finalize instance by proposing NO-OP
 		// we set to empty since we implicitly enforce the ordering between batches from the same leader
 		deps := []int32{-1}
@@ -2743,7 +2746,7 @@ func (r *Replica) handlePrepareReplyWIP(preply *copilotproto.PrepareReply) {
 			}()
 		}
 	} else {
-		dlog.Println(r.Id, "...in here 4...")
+		// dlog.Println(r.Id, "...in here 4...")
 		//try to finalize instance by proposing NO-OP
 		// we set to empty since we implicitly enforce the ordering between batches from the same leader
 		deps := []int32{-1}
