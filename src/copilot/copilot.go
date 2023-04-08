@@ -2560,15 +2560,19 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, inst.Deps, depViewId)
 			//dlog.Println(r.Id, "...in here 1...")
 		} else {
-			deps := []int32{-1}
+			/* Guanzhou: this branch seems problematic -- skips necessary durability logging */
+			// deps := []int32{-1}
+			// inst.lb.preparing = false
+			// r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
+			// 	make([]state.Command, 0),
+			// 	inst.ballot,
+			// 	copilotproto.ACCEPTED,
+			// 	deps,
+			// 	inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
+			// r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
+			/* Probably should do the following instead */
 			inst.lb.preparing = false
-			r.InstanceSpace[preply.Replica][preply.Instance] = &Instance{
-				make([]state.Command, 0),
-				inst.ballot,
-				copilotproto.ACCEPTED,
-				deps,
-				inst.lb, 0, 0, nil, time.Now(), time.Time{}, false, -1, inst.ballot}
-			r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
+			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
 		}
 	} else {
 		dlog.Println(r.Id, "...in here 4...")
