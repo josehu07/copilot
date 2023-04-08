@@ -1841,7 +1841,7 @@ func (r *Replica) startPhase1(replica int32, instance int32, ballot int32, propo
 	r.recordCommands(cmds)
 	r.sync()
 	r.InstanceSpace[replica][instance].lb.leaderLogged = true
-	fmt.Println("??1", r.Id, replica, instance, "leaderLogged")
+	// fmt.Println("??1", r.Id, replica, instance, "leaderLogged")
 
 	cpcounter += batchSize
 
@@ -2052,7 +2052,7 @@ func (r *Replica) handlePreAcceptReply(pareply *copilotproto.PreAcceptReply) {
 	// f + (f+1)/2 - 1
 	if inst.lb.preAcceptOKs >= r.N/2+(r.N/2+1)/2-1 && isInitialBallot(inst.ballot) {
 		if !inst.lb.leaderLogged {
-			fmt.Println("!!2", r.Id, pareply.Replica, pareply.Instance, "NOT LOGGED")
+			// fmt.Println("!!2", r.Id, pareply.Replica, pareply.Instance, "NOT LOGGED")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
@@ -2237,7 +2237,7 @@ func (r *Replica) handleAcceptReply(areply *copilotproto.AcceptReply) {
 
 	if inst.lb.acceptOKs+1 > r.N/2 {
 		if !inst.lb.leaderLogged {
-			fmt.Println("!!1", r.Id, areply.Replica, areply.Instance, "NOT LOGGED")
+			// fmt.Println("!!1", r.Id, areply.Replica, areply.Instance, "NOT LOGGED")
 			log.Fatal("Error: leader should have finished logging for this instance")
 		}
 
@@ -2552,7 +2552,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 		if ir.status == copilotproto.ACCEPTED ||
 			(!ir.leaderResponded && ir.originalDepCount >= slowQS-1) || (ir.leaderResponded && ir.originalDepCount >= slowQS) {
 			/* Guanzhou: this branch seems problematic -- skips necessary durability logging */
-			fmt.Println("*** A")
+			// fmt.Println("*** A")
 			inst.Cmds = ir.cmds
 			inst.Deps = ir.deps
 			inst.Status = copilotproto.ACCEPTED
@@ -2569,11 +2569,11 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			r.recordCommands(ir.cmds)
 			r.sync()
 			r.InstanceSpace[preply.Replica][preply.Instance].lb.leaderLogged = true
-			fmt.Println("??2", r.Id, preply.Replica, preply.Instance, "leaderLogged")
+			// fmt.Println("??2", r.Id, preply.Replica, preply.Instance, "leaderLogged")
 
 			//dlog.Println(r.Id, "...in here 1...")
 		} else {
-			fmt.Println("*** B")
+			// fmt.Println("*** B")
 			/* Guanzhou: Probably should do the following? */
 			inst.lb.preparing = false
 			r.startPhase1(preply.Replica, preply.Instance, inst.ballot, inst.lb.clientProposals, ir.cmds, len(ir.cmds))
@@ -2589,7 +2589,7 @@ func (r *Replica) handlePrepareReply(preply *copilotproto.PrepareReply) {
 			// r.bcastAccept(preply.Replica, preply.Instance, r.views[preply.Replica].view.ViewId, inst.ballot, inst.Cmds, deps, depViewId)
 		}
 	} else {
-		fmt.Println("*** C")
+		// fmt.Println("*** C")
 		// dlog.Println(r.Id, "...in here 4...")
 		//try to finalize instance by proposing NO-OP
 		// we set to empty since we implicitly enforce the ordering between batches from the same leader
