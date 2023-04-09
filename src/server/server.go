@@ -95,6 +95,8 @@ func main() {
 			log.Fatal(err)
 		}
 		batchSizeLogFile = f
+
+		f.WriteString("cols replicaID batchSize\n")
 	}
 
 	// check timeBreakLogName

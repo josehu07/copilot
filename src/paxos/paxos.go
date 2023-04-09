@@ -111,18 +111,28 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(map[string]map[int32]int64),
 	}
 
-	r.timeBreakBuffers["Propose"] = make(map[int32]int64)
-	r.timeBreakBuffers["PrepareSend"] = make(map[int32]int64)
-	r.timeBreakBuffers["PrepareRecv"] = make(map[int32]int64)
-	r.timeBreakBuffers["PrepareReplySend"] = make(map[int32]int64)
-	r.timeBreakBuffers["PrepareReplyRecv"] = make(map[int32]int64)
-	r.timeBreakBuffers["AcceptSend"] = make(map[int32]int64)
-	r.timeBreakBuffers["AcceptRecv"] = make(map[int32]int64)
-	r.timeBreakBuffers["AcceptReplySend"] = make(map[int32]int64)
-	r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
-	r.timeBreakBuffers["Execute"] = make(map[int32]int64)
-	r.timeBreakBuffers["Acknowledge"] = make(map[int32]int64)
-	r.timeBreakBuffers["IsAbnormal"] = make(map[int32]int64)
+	if r.batchSizeLogFile != nil {
+		r.timeBreakLogFile.WriteString(fmt.Sprintf("MyReplicaID %d\n", r.Id))
+		r.timeBreakLogFile.WriteString("cols ReplicaID BatchSize\n")
+	}
+
+	if r.timeBreakLogFile != nil {
+		r.timeBreakBuffers["Propose"] = make(map[int32]int64)
+		r.timeBreakBuffers["PrepareSend"] = make(map[int32]int64)
+		r.timeBreakBuffers["PrepareRecv"] = make(map[int32]int64)
+		r.timeBreakBuffers["PrepareReplySend"] = make(map[int32]int64)
+		r.timeBreakBuffers["PrepareReplyRecv"] = make(map[int32]int64)
+		r.timeBreakBuffers["AcceptSend"] = make(map[int32]int64)
+		r.timeBreakBuffers["AcceptRecv"] = make(map[int32]int64)
+		r.timeBreakBuffers["AcceptReplySend"] = make(map[int32]int64)
+		r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
+		r.timeBreakBuffers["Execute"] = make(map[int32]int64)
+		r.timeBreakBuffers["Acknowledge"] = make(map[int32]int64)
+		r.timeBreakBuffers["IsAbnormal"] = make(map[int32]int64)
+
+		r.timeBreakLogFile.WriteString(fmt.Sprintf("MyReplicaID %d\n", r.Id))
+		r.timeBreakLogFile.WriteString("cols Action ReplicaID InstanceID Timestamp(ns)\n")
+	}
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
