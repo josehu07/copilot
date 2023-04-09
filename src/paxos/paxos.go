@@ -28,6 +28,8 @@ const BATCH_INTERVAL = 100 * time.Microsecond
 
 const BENCH_LOGGING_INTERVAL = 200 * time.Millisecond
 
+var TIME_BREAK_BASE_DATE = time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC)
+
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
 	prepareChan         chan fastrpc.Serializable
@@ -54,6 +56,10 @@ type Replica struct {
 	// batch size logging
 	batchSizeLogFile *os.File
 	batchSizeBuffer  []int
+
+	// timing breakdown logging
+	timeBreakLogFile *os.File
+	timeBreakBuffers map[string]map[int32]int64
 }
 
 type InstanceStatus int
@@ -81,7 +87,8 @@ type LeaderBookkeeping struct {
 	leaderLogged    bool
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint64, batchSizeLogFile *os.File) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, durDelayPerSector uint64,
+	batchSizeLogFile *os.File, timeBreakLogFile *os.File) *Replica {
 	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, durable, durDelayPerSector),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -99,7 +106,23 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		true,
 		-1,
 		batchSizeLogFile,
-		nil}
+		nil,
+		timeBreakLogFile,
+		make(map[string]map[int32]int64),
+	}
+
+	r.timeBreakBuffers["Propose"] = make(map[int32]int64)
+	r.timeBreakBuffers["PrepareSend"] = make(map[int32]int64)
+	r.timeBreakBuffers["PrepareRecv"] = make(map[int32]int64)
+	r.timeBreakBuffers["PrepareReplySend"] = make(map[int32]int64)
+	r.timeBreakBuffers["PrepareReplyRecv"] = make(map[int32]int64)
+	r.timeBreakBuffers["AcceptSend"] = make(map[int32]int64)
+	r.timeBreakBuffers["AcceptRecv"] = make(map[int32]int64)
+	r.timeBreakBuffers["AcceptReplySend"] = make(map[int32]int64)
+	r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
+	r.timeBreakBuffers["Execute"] = make(map[int32]int64)
+	r.timeBreakBuffers["Acknowledge"] = make(map[int32]int64)
+	r.timeBreakBuffers["IsAbnormal"] = make(map[int32]int64)
 
 	r.prepareRPC = r.RegisterRPC(new(paxosproto.Prepare), r.prepareChan)
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
@@ -221,7 +244,54 @@ func (r *Replica) benchLoggingFlush() {
 			log.Fatal(err)
 		}
 
-		r.batchSizeBuffer = nil
+		r.batchSizeBuffer = nil // clear the buffer
+	}
+
+	// timing breakdown logging
+	if r.timeBreakLogFile != nil {
+		var tbBytes bytes.Buffer
+		for name, tsMap := range r.timeBreakBuffers {
+			if len(tsMap) > 0 {
+				for inst, ts := range tsMap {
+					tbBytes.WriteString(fmt.Sprintf("tb %s %d %d %d\n", name, r.Id, inst, ts))
+				}
+			}
+		}
+
+		if tbBytes.Len() > 0 {
+			_, err := tbBytes.WriteTo(r.timeBreakLogFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		for name, _ := range r.timeBreakBuffers { // clear all buffers
+			r.timeBreakBuffers[name] = make(map[int32]int64)
+		}
+	}
+}
+
+func (r *Replica) stampBatchSize(batchSize int) {
+	if r.batchSizeLogFile != nil && batchSize > 0 {
+		// fmt.Println("??? batched", batchSize)
+		r.batchSizeBuffer = append(r.batchSizeBuffer, batchSize)
+	}
+}
+
+func (r *Replica) stampTimeBreak(name string, inst int32) {
+	if r.timeBreakLogFile != nil {
+		if inst < 0 {
+			log.Fatal("caught negative instance number")
+		}
+
+		now := time.Now()
+		ts := int64(now.Sub(TIME_BREAK_BASE_DATE).Nanoseconds())
+
+		if tsOld, ok := r.timeBreakBuffers[name][inst]; ok {
+			// this timestamp is already taken for this instance
+			r.timeBreakBuffers["IsAbnormal"][inst] = tsOld
+		}
+		r.timeBreakBuffers[name][inst] = ts
 	}
 }
 
@@ -405,6 +475,8 @@ func (r *Replica) updateCommittedUpTo() {
 }
 
 func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
+	r.stampTimeBreak("PrepareSend", instance)
+
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Prepare bcast failed:", err)
@@ -438,6 +510,8 @@ func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
 var pa paxosproto.Accept
 
 func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Command) {
+	r.stampTimeBreak("AcceptSend", instance)
+
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Accept bcast failed:", err)
@@ -545,10 +619,8 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	}
 
 	dlog.Printf("Batched %d\n", batchSize)
-	if r.batchSizeLogFile != nil && batchSize > 0 {
-		// fmt.Println("??? batched", batchSize)
-		r.batchSizeBuffer = append(r.batchSizeBuffer, batchSize)
-	}
+	r.stampBatchSize(batchSize)
+	r.stampTimeBreak("Propose", instNo)
 
 	cmds := make([]state.Command, batchSize)
 	proposals := make([]*genericsmr.Propose, batchSize)
@@ -588,6 +660,8 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 }
 
 func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
+	r.stampTimeBreak("PrepareRecv", prepare.Instance)
+
 	inst := r.instanceSpace[prepare.Instance]
 	var preply *paxosproto.PrepareReply
 
@@ -605,6 +679,7 @@ func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
 		preply = &paxosproto.PrepareReply{prepare.Instance, ok, inst.ballot, inst.cmds}
 	}
 
+	r.stampTimeBreak("PrepareReplySend", prepare.Instance)
 	r.replyPrepare(prepare.LeaderId, preply)
 
 	if prepare.ToInfinity == TRUE && prepare.Ballot > r.defaultBallot {
@@ -613,6 +688,8 @@ func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
 }
 
 func (r *Replica) handleAccept(accept *paxosproto.Accept) {
+	r.stampTimeBreak("AcceptRecv", accept.Instance)
+
 	inst := r.instanceSpace[accept.Instance]
 	var areply *paxosproto.AcceptReply
 
@@ -657,6 +734,7 @@ func (r *Replica) handleAccept(accept *paxosproto.Accept) {
 		r.sync()
 	}
 
+	r.stampTimeBreak("AcceptReplySend", accept.Instance)
 	r.replyAccept(accept.LeaderId, areply)
 }
 
@@ -716,6 +794,8 @@ func (r *Replica) handleCommitShort(commit *paxosproto.CommitShort) {
 }
 
 func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
+	r.stampTimeBreak("PrepareReplyRecv", preply.Instance)
+
 	inst := r.instanceSpace[preply.Instance]
 
 	if inst.status != PREPARING {
@@ -773,6 +853,8 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 }
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
+	r.stampTimeBreak("AcceptReplyRecv", areply.Instance)
+
 	inst := r.instanceSpace[areply.Instance]
 
 	if inst.status != PREPARED && inst.status != ACCEPTED {
@@ -896,6 +978,8 @@ func (r *Replica) executeCommands() {
 
 		for i <= r.committedUpTo {
 			if r.instanceSpace[i].cmds != nil {
+				r.stampTimeBreak("Execute", i)
+
 				inst := r.instanceSpace[i]
 				for j := 0; j < len(inst.cmds); j++ {
 					val := inst.cmds[j].Execute(r.State)
@@ -905,6 +989,8 @@ func (r *Replica) executeCommands() {
 							inst.lb.clientProposals[j].CommandId,
 							val,
 							inst.lb.clientProposals[j].Timestamp}
+
+						r.stampTimeBreak("Acknowledge", i)
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}
