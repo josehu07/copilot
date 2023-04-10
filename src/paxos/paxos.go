@@ -1000,10 +1000,11 @@ func (r *Replica) executeCommands() {
 							val,
 							inst.lb.clientProposals[j].Timestamp}
 
-						r.stampTimeBreak("Acknowledge", i)
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}
+
+				r.stampTimeBreak("Acknowledge", i)
 				i++
 				executed = true
 			} else {
