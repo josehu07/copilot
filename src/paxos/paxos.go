@@ -121,11 +121,12 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		r.timeBreakBuffers["PrepareSend"] = make(map[int32]int64)
 		r.timeBreakBuffers["PrepareRecv"] = make(map[int32]int64)
 		r.timeBreakBuffers["PrepareReplySend"] = make(map[int32]int64)
-		r.timeBreakBuffers["PrepareReplyRecv"] = make(map[int32]int64)
+		// r.timeBreakBuffers["PrepareReplyRecv"] = make(map[int32]int64)
 		r.timeBreakBuffers["AcceptSend"] = make(map[int32]int64)
 		r.timeBreakBuffers["AcceptRecv"] = make(map[int32]int64)
 		r.timeBreakBuffers["AcceptReplySend"] = make(map[int32]int64)
-		r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
+		// r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
+		r.timeBreakBuffers["LeaderLogged"] = make(map[int32]int64)
 		r.timeBreakBuffers["Commit"] = make(map[int32]int64)
 		r.timeBreakBuffers["IsAbnormal"] = make(map[int32]int64)
 
@@ -666,6 +667,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		r.recordCommands(cmds)
 		r.sync()
 		r.instanceSpace[instNo].lb.leaderLogged = true
+		r.stampTimeBreak("LeaderLogged", instNo)
 	}
 }
 
@@ -804,7 +806,7 @@ func (r *Replica) handleCommitShort(commit *paxosproto.CommitShort) {
 }
 
 func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
-	r.stampTimeBreak("PrepareReplyRecv", preply.Instance)
+	// r.stampTimeBreak("PrepareReplyRecv", preply.Instance)
 
 	inst := r.instanceSpace[preply.Instance]
 
@@ -863,7 +865,7 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 }
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
-	r.stampTimeBreak("AcceptReplyRecv", areply.Instance)
+	// r.stampTimeBreak("AcceptReplyRecv", areply.Instance)
 
 	inst := r.instanceSpace[areply.Instance]
 
