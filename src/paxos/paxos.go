@@ -126,8 +126,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		r.timeBreakBuffers["AcceptRecv"] = make(map[int32]int64)
 		r.timeBreakBuffers["AcceptReplySend"] = make(map[int32]int64)
 		r.timeBreakBuffers["AcceptReplyRecv"] = make(map[int32]int64)
-		r.timeBreakBuffers["Execute"] = make(map[int32]int64)
-		r.timeBreakBuffers["Acknowledge"] = make(map[int32]int64)
+		r.timeBreakBuffers["Commit"] = make(map[int32]int64)
 		r.timeBreakBuffers["IsAbnormal"] = make(map[int32]int64)
 
 		r.timeBreakLogFile.WriteString(fmt.Sprintf("MyReplicaID %d\n", r.Id))
@@ -481,6 +480,7 @@ func (r *Replica) updateCommittedUpTo() {
 	for r.instanceSpace[r.committedUpTo+1] != nil &&
 		r.instanceSpace[r.committedUpTo+1].status == COMMITTED {
 		r.committedUpTo++
+		r.stampTimeBreak("Commit", r.committedUpTo)
 	}
 }
 
@@ -988,8 +988,6 @@ func (r *Replica) executeCommands() {
 
 		for i <= r.committedUpTo {
 			if r.instanceSpace[i].cmds != nil {
-				r.stampTimeBreak("Execute", i)
-
 				inst := r.instanceSpace[i]
 				for j := 0; j < len(inst.cmds); j++ {
 					val := inst.cmds[j].Execute(r.State)
@@ -1003,8 +1001,6 @@ func (r *Replica) executeCommands() {
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}
-
-				r.stampTimeBreak("Acknowledge", i)
 				i++
 				executed = true
 			} else {
